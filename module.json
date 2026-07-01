@@ -1,0 +1,28 @@
+{
+  "id": "app-creator",
+  "namespace": "Alioth",
+  "name": "应用创建器",
+  "description": "AliothStudio 应用创建器——可视化创建、配置和引导新应用/模块，提供应用模板、快速搭建与一键部署能力。",
+  "category": "platform",
+  "status": "active",
+  "version": "0.1.1",
+  "routePrefix": "/creator",
+  "icon": "Wand",
+  "hasBackend": true,
+  "hasFrontend": true,
+  "dependencies": [],
+  "techStack": [
+    "Rust",
+    "React",
+    "PostgreSQL"
+  ],
+  "selectable": false,
+  "versions": [
+    {
+      "version": "0.1.1",
+      "releasedAt": "2026-06-30",
+      "active": true
+    }
+  ],
+  "prototypeVersion": "v0"
+}

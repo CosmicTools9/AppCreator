@@ -1,0 +1,14 @@
+[tasks]
+setup = "pnpm install"
+dev = "bun run dev"
+build = "bun run build"
+test = "bun run test"
+lint = "bun run lint"
+clean = "rm -rf dist node_modules/.cache"
+preview = "bun run preview"
+
+[env]
+_.file = ".env.local"
+_.source = "../../scripts/env/decrypt-env.sh"
+NODE_ENV = "development"
+VITE_API_URL = "http://localhost:49495"

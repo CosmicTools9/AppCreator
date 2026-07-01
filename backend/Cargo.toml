@@ -1,0 +1,16 @@
+[package]
+name = "app-creator"
+version = "0.1.0"
+edition = "2021"
+description = "AliothStudio AppCreator Service — AI-powered prototype creation via dialogue"
+default-run = "app-creator"
+
+[dependencies]
+actix-web = "4.13"
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+env_logger = "0.11"
+log = "0.4"
+
+[dev-dependencies]
+actix-rt = "2"
