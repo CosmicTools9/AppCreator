@@ -1,28 +1,24 @@
 {
   "id": "app-creator",
-  "namespace": "Alioth",
-  "name": "应用创建器",
-  "description": "AliothStudio 应用创建器——可视化创建、配置和引导新应用/模块，提供应用模板、快速搭建与一键部署能力。",
-  "category": "platform",
+  "namespace": "AppCreator",
+  "name": "AppCreator Service",
+  "category": "service",
   "status": "active",
-  "version": "0.1.1",
-  "routePrefix": "/creator",
-  "icon": "Wand",
+  "routePrefix": "/app-creator",
+  "icon": "Cpu",
   "hasBackend": true,
-  "hasFrontend": true,
-  "dependencies": [],
-  "techStack": [
-    "Rust",
-    "React",
-    "PostgreSQL"
-  ],
-  "selectable": false,
+  "hasFrontend": false,
+  "version": "0.1.0",
+  "dependencies": ["meta"],
+  "selectable": true,
+  "techStack": ["Rust", "PostgreSQL"],
   "versions": [
     {
-      "version": "0.1.1",
-      "releasedAt": "2026-06-30",
-      "active": true
+      "version": "0.1.0",
+      "active": true,
+      "releasedAt": "2026-07-19"
     }
   ],
+  "description": "AppCreator 独立服务 — Docker 打包与端到端测试",
   "prototypeVersion": "v0"
 }
