@@ -39,8 +39,10 @@ pub fn build_images(
 
     let output = Command::new("bash")
         .arg(&script)
-        .arg("--tag").arg(tag)
-        .arg("--namespace").arg(namespace)
+        .arg("--tag")
+        .arg(tag)
+        .arg("--namespace")
+        .arg(namespace)
         .current_dir(project_root)
         .output()
         .map_err(AppCreatorError::Io)?;
@@ -165,7 +167,11 @@ networks:
 
 /// 生成版本锁清单
 pub fn generate_lock(config: &AppConfig, gateway_tag: &str) -> String {
-    let code = format!("{}-{}", config.namespace.to_lowercase(), config.name.to_lowercase());
+    let code = format!(
+        "{}-{}",
+        config.namespace.to_lowercase(),
+        config.name.to_lowercase()
+    );
     LOCK_JSON
         .replace("{{created_at}}", &chrono::Utc::now().to_rfc3339())
         .replace("{{name}}", &config.name)
@@ -180,8 +186,14 @@ pub fn generate_lock(config: &AppConfig, gateway_tag: &str) -> String {
 pub fn generate_compose(config: &AppConfig, gateway_tag: &str, host_ports: &[u16]) -> String {
     let root = Path::new(&config.project_root);
     let preproc_dir = root.join("Pre-Proc").to_string_lossy().to_string();
-    let proto_file = root.join("Pre-Proc").join(&config.namespace).join("Apps").join(&config.name)
-        .join("prototype.html").to_string_lossy().to_string();
+    let proto_file = root
+        .join("Pre-Proc")
+        .join(&config.namespace)
+        .join("Apps")
+        .join(&config.name)
+        .join("prototype.html")
+        .to_string_lossy()
+        .to_string();
 
     COMPOSE_YAML
         .replace("{{preproc_dir}}", &preproc_dir)
@@ -190,18 +202,33 @@ pub fn generate_compose(config: &AppConfig, gateway_tag: &str, host_ports: &[u16
         .replace("{{namespace}}", &config.namespace)
         .replace("{{model_version}}", &config.alioth_model_version)
         .replace("{{tag}}", gateway_tag)
-        .replace("{{frontend_port}}", &host_ports.first().copied().unwrap_or(41717).to_string())
-        .replace("{{proto_port}}", &host_ports.get(1).copied().unwrap_or(8081).to_string())
+        .replace(
+            "{{frontend_port}}",
+            &host_ports.first().copied().unwrap_or(41717).to_string(),
+        )
+        .replace(
+            "{{proto_port}}",
+            &host_ports.get(1).copied().unwrap_or(8081).to_string(),
+        )
 }
 
 /// 构建
-pub fn build(config: &AppConfig, gateway_tag: &str, host_ports: &[u16]) -> Result<BuildOutput, AppCreatorError> {
+pub fn build(
+    config: &AppConfig,
+    gateway_tag: &str,
+    host_ports: &[u16],
+) -> Result<BuildOutput, AppCreatorError> {
     let app_dir = Path::new(&config.project_root)
-        .join("Pre-Proc").join(&config.namespace).join("Apps").join(&config.name);
+        .join("Pre-Proc")
+        .join(&config.namespace)
+        .join("Apps")
+        .join(&config.name);
 
     let proto = app_dir.join("prototype.html");
     if !proto.exists() {
-        return Err(AppCreatorError::PrototypeMissing(proto.display().to_string()));
+        return Err(AppCreatorError::PrototypeMissing(
+            proto.display().to_string(),
+        ));
     }
 
     Ok(BuildOutput {

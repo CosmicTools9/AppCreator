@@ -6,7 +6,7 @@
 pub mod auth;
 pub mod docker;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Alioth 模型版本默认值

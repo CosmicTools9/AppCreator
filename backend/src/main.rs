@@ -15,9 +15,8 @@ async fn main() -> std::io::Result<()> {
         std::env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:49495".to_string());
 
     // Initialize logger
-    let mut logger_builder = env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("info"),
-    );
+    let mut logger_builder =
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
     logger_builder.format_timestamp_millis();
     logger_builder.init();
     log::info!("AppCreator config loaded: server_addr={}", server_addr);
