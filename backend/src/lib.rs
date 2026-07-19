@@ -1,2 +1,62 @@
-// AppCreator shared library root
-// Placeholder for future modules: config, db, api handlers, etc.
+//! AppCreator shared library
+//!
+//! 独立服务，与 Meta 仅共享 DB。
+//! API 无交互，认证通过 SSO JWT (RS256)。
+
+pub mod auth;
+pub mod docker;
+
+use serde::{Serialize, Deserialize};
+use thiserror::Error;
+
+/// Alioth 模型版本默认值
+pub const DEFAULT_ALIOTH_MODEL_VERSION: &str = "10.0.0";
+
+/// 构建配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppConfig {
+    pub name: String,
+    pub namespace: String,
+    pub project_root: String,
+    pub version: String,
+    pub alioth_model_version: String,
+    pub port: u16,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            namespace: "Alioth".to_string(),
+            project_root: ".".to_string(),
+            version: "0.1.0".to_string(),
+            alioth_model_version: DEFAULT_ALIOTH_MODEL_VERSION.to_string(),
+            port: 8080,
+        }
+    }
+}
+
+/// 错误
+#[derive(Error, Debug)]
+pub enum AppCreatorError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Template error: {0}")]
+    Template(String),
+    #[error("Build error: {0}")]
+    Build(String),
+    #[error("Meta API error: {0}")]
+    MetaApi(String),
+    #[error("模型版本不匹配: 期望 {expected}, 实际 {actual}")]
+    ModelVersionMismatch { expected: String, actual: String },
+    #[error("原型文件缺失: {0}")]
+    PrototypeMissing(String),
+}
+
+/// 构建结果
+#[derive(Debug, Serialize)]
+pub struct BuildOutput {
+    pub lock_content: String,
+    pub compose_content: String,
+    pub artifacts: Vec<String>,
+}
