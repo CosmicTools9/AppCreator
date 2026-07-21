@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AppCreator — AI 对话应用创建</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+body{font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#0A0A0F;color:#F1F5F9;line-height:1.6}
+:root{--accent:#2563EB;--accent-hover:#1D4ED8;--bg-primary:#0A0A0F;--bg-surface:#141420;--bg-card:#1C1C2E;--border:#2A2A3E;--text-primary:#F1F5F9;--text-secondary:#94A3B8}
+.muted-text{color:var(--text-secondary)}
+/* Layout */
+.layout{display:flex;height:100vh;overflow:hidden}
+/* Sidebar */
+.sidebar{width:220px;background:var(--bg-surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sb-header{display:flex;align-items:center;gap:10px;padding:20px 16px 12px}
+.sb-logo{width:28px;height:28px;background:var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.sb-new{display:block;margin:0 12px 12px;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;text-align:center;cursor:pointer}
+.sb-new:hover{background:var(--accent-hover)}
+.sb-list{flex:1;overflow-y:auto}
+.sb-item{padding:8px 16px;font-size:13px;color:var(--text-secondary);border-left:3px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-item.active{color:var(--text-primary);border-left-color:var(--accent);background:rgba(37,99,235,0.08)}
+.sb-footer{padding:12px;border-top:1px solid var(--border)}
+.logout{width:100%;padding:6px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);font-size:12px;cursor:pointer;text-align:center;display:block}
+.logout:hover{border-color:var(--accent);color:var(--accent)}
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+.empty-icon{opacity:0.3;margin-bottom:12px}
+.empty h3{font-size:18px;font-weight:600;margin-bottom:4px}
+.templates{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;max-width:520px;margin-top:24px}
+.tpl-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;cursor:pointer;min-width:120px;color:inherit;font:inherit;transition:all .15s}
+.tpl-btn:hover{border-color:var(--accent);background:rgba(37,99,235,0.04)}
+.tpl-btn strong{font-size:14px;font-weight:600;color:var(--text-primary)}
+.tpl-btn span{font-size:11px;color:var(--text-secondary)}
+/* Messages */
+.msgs{flex:1;overflow-y:auto;padding:24px 32px}
+.msg{display:flex;gap:12px;margin-bottom:20px;max-width:720px}
+.msg.user{margin-left:auto;flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.avatar.ai{background:var(--accent);color:#fff}
+.avatar.user{background:rgba(255,255,255,0.1)}
+.bubble{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;font-size:14px;line-height:1.7;white-space:pre-wrap}
+.msg.user .bubble{background:var(--accent);border-color:var(--accent)}
+/* Input */
+.input-bar{display:flex;gap:8px;padding:16px 24px;border-top:1px solid var(--border);background:var(--bg-surface)}
+.chat-input{flex:1;padding:10px 16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px;outline:none}
+.chat-input:focus{border-color:var(--accent)}
+.send-btn{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.send-btn:hover{background:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sb-header">
+      <div class="sb-logo">AC</div>
+      <span style="font-size:13px;font-weight:600">AppCreator</span>
+    </div>
+    <a href="#" class="sb-new">+ 新建会话</a>
+    <div class="sb-list">
+      <div class="sb-item active">客户管理后台...</div>
+      <div class="sb-item">审批流程 v2...</div>
+    </div>
+    <div class="sb-footer">
+      <span style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:8px;padding:0 4px">admin</span>
+      <a href="/login" class="logout">退出登录</a>
+    </div>
+  </aside>
+
+  <!-- Main chat -->
+  <main class="main">
+    <!-- Empty state -->
+    <div class="empty">
+      <div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <h3>选择场景，开始创建</h3>
+      <p class="muted-text" style="font-size:14px">选择一个模板开始对话，或直接输入你的需求</p>
+      <div class="templates">
+        <a href="#" class="tpl-btn"><strong>客户管理后台</strong><span>列表、详情、表单</span></a>
+        <a href="#" class="tpl-btn"><strong>审批流程</strong><span>报销、请假、合同</span></a>
+        <a href="#" class="tpl-btn"><strong>ERP 模块</strong><span>采购、库存、订单</span></a>
+        <a href="#" class="tpl-btn"><strong>数据看板</strong><span>销售报表、运营指标</span></a>
+      </div>
+    </div>
+
+    <!-- Input bar (always visible for demonstration) -->
+    <div class="input-bar">
+      <input class="chat-input" type="text" placeholder="描述你的应用需求..." disabled />
+      <button class="send-btn" disabled>发送</button>
+    </div>
+  </main>
+</div>
+</body>
+</html>

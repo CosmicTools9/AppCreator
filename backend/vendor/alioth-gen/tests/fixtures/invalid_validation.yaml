@@ -1,0 +1,73 @@
+# 包含验证错误的 DSL 示例
+# 语法正确但语义错误
+version: "1.0"
+meta_model:
+  name: invalid_validation_model
+  display_name: 验证错误模型
+collections:
+  # 重复的 Collection 名称
+  - name: users
+    display_name: 用户1
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+  - name: users
+    display_name: 用户2
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+
+  # 无效的字段类型
+  - name: products
+    display_name: 产品
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+      # 引用不存在的枚举
+      - name: status
+        field_type: enum
+        nullable: true
+        enum_config:
+          enum_name: non_existent_enum
+
+  # 索引引用不存在的字段
+  - name: orders
+    display_name: 订单
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+    indexes:
+      - name: idx_nonexistent
+        fields:
+          - non_existent_field
+        unique: false
+
+  # 无效的命名（SQL 关键字）
+  - name: select
+    display_name: 选择
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+
+enums:
+  # 空的枚举
+  - name: empty_enum
+    display_name: 空枚举
+    values: []
+
+relations:
+  # 引用不存在的 Collection
+  - name: invalid_relation
+    from: non_existent_from
+    to: non_existent_to
+    relation_type: one_to_many

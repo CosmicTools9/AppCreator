@@ -1,0 +1,36 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+sqlx = { workspace = true }
+jsonwebtoken = { workspace = true }
+futures = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+rust_decimal = { workspace = true }
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1", "tokio1-rustls-tls", "builder", "pool"] }
+reqwest = { workspace = true }
+hmac = "0.13"
+sha1 = "0.11"
+sha2 = "0.11"
+base64 = { workspace = true }
+hex = "0.4"
+percent-encoding = "2"
+uuid = { workspace = true }
+
+[lib]
+
+[dev-dependencies]
+tokio = { workspace = true }
+actix-rt = "2"

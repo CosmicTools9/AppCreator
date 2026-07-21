@@ -45,6 +45,33 @@ export interface Project {
   created_at: string;
 }
 
+export interface ChatSession {
+  id: number;
+  title: string;
+  app_instance_id: number | null;
+  namespace: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  messages: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: number;
+  session_id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface StepResponse {
+  state_before: string;
+  state_after: string;
+  is_terminal: boolean;
+  progress_percent: number;
+  message: string;
+}
+
 export const api = {
   listProjects: (opts: ApiOptions) =>
     request<{ projects: Project[]; total: number }>("/projects", {
@@ -54,4 +81,35 @@ export const api = {
 
   getProject: (id: number, opts: ApiOptions) =>
     request<Project>(`/projects/${id}`, { method: "GET", ...opts }),
+
+  // ── Chat Sessions ───────────────────────────────────
+  createSession: (
+    body: { title?: string; app_instance_id?: number | null; namespace: string },
+    opts: ApiOptions
+  ) =>
+    request<ChatSession>("/sessions", {
+      method: "POST",
+      body: JSON.stringify(body),
+      ...opts,
+    }),
+
+  getSession: (id: number, opts: ApiOptions) =>
+    request<ChatSession>(`/sessions/${id}`, { method: "GET", ...opts }),
+
+  addMessage: (
+    id: number,
+    body: { content: string; role?: "user" | "assistant" },
+    opts: ApiOptions
+  ) =>
+    request<ChatMessage>(`/sessions/${id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content: body.content, role: body.role ?? "user" }),
+      ...opts,
+    }),
+
+  generateResponse: (id: number, opts: ApiOptions) =>
+    request<StepResponse>(`/sessions/${id}/generate-response`, {
+      method: "POST",
+      ...opts,
+    }),
 };

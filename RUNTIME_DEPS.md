@@ -12,17 +12,24 @@ which remain for future activation.
 | `guard-mise-task.sh` | `scripts/lib/` | `scripts/lib/` |
 | `guard-database-tier.sh` | `scripts/lib/` | `scripts/lib/` |
 | `decrypt-env.sh` | `scripts/env/` | `scripts/env/` |
+| `ensure-schema.sh` | `scripts/db/` | new — delegates to `AliothStudio/scripts/db/reset-db.sh` |
 
 ### Cargo workspace
 
-`AppCreator/Cargo.toml` provides a self-contained `[workspace.dependencies]`
-with the 6 shared crates that `backend/Cargo.toml` references via
-`workspace = true`. All other deps are hardcoded versions.
+`AppCreator/Cargo.toml` includes a self-contained `[workspace.dependencies]`
+and the following vendored crates under `backend/vendor/`:
 
-### Frontend packages
-
-`package.json` declares only OSS npm dependencies (`react`, `vite`, etc).
-No `@alioth/*` packages — they were declared but unused (0 imports in `src/`).
+| Crate | Source | Used by |
+|---|---|---|
+| `common` | `Framework/backend/common` | `app-creator` backend (auth, errors, telemetry, DB testing) |
+| `llm` | `Framework/backend/llm` | `EnvLlmAdapter` → AppAgent LLM facade |
+| `runtime-contract` | `Framework/backend/runtime-contract` | transitive via `app-agent` |
+| `runtime-engine` | `Framework/backend/runtime-engine` | transitive via `app-agent` / `runtime-contract` |
+| `meta-common` | `Meta/backend/common` | transitive via `app-agent` / `alioth-gen` |
+| `meta-model` | `Meta/backend/meta-model` | transitive via `app-agent` / `alioth-gen` |
+| `alioth-gen` | `Meta/backend/alioth-gen` | `app-agent` IR / Visualizer (CLI codegen **not** supported) |
+| `ontology-mapping` | `Meta/backend/ontology-mapping` | transitive via `app-agent` |
+| `app-agent` | `Meta/backend/app-agent` | core AppAgent orchestrator, state machine, skills |
 
 ## Not yet vendored
 
@@ -31,10 +38,18 @@ become **runtime 404s** if the corresponding code path is exercised.
 
 | Asset | Referenced from | Status | Action needed |
 |---|---|---|---|
+| `Framework/backend/crud` | `alioth-gen` CLI module/backend codegen templates | Not vendored by design | Vendor if AppCreator needs to run `alioth-gen` CLI to generate new module crates |
 | `scripts/gateway/build-docker.sh` | `docker.rs::build_images()` | Not wired into any route yet | Rewrite with `app-creator` image names + Dockerfiles when service-mode lands |
 | `Pre-Proc/` + `framework.proto` | `docker.rs::build()` / `generate_compose()` | Not wired into any route yet | Vendor with sync-framework.sh when compose generation is activated |
-| `common` crate | `backend/Cargo.toml` (removed) | Declared but unused (0 `use common::*` in `src/`) | Add via sync-framework.sh when DB pool / JWT middleware / error mapping is wired |
 | `@alioth/{api,components,hooks}` | `frontend/package.json` (removed) | Declared but unused (0 imports in `src/`) | Vendor when frontend consumes shared components; add `pnpm-workspace.yaml` |
+
+## `alioth-gen` CLI limitation
+
+`backend/vendor/alioth-gen` is vendored for its IR and ontology visualizer
+runtime used by `app-agent`. The CLI module/backend code-generation path
+references `Framework/backend/crud`, which is **not** vendored. AppCreator
+cannot generate new module/backend `Cargo.toml` files through `alioth-gen` CLI
+until `crud` is also vendored.
 
 ## Ignored tests
 
@@ -52,10 +67,6 @@ cargo test -- --ignored
 ```bash
 # Dev scripts (always safe to refresh):
 bash scripts/sync-framework.sh /path/to/AliothStudio
-
-# common crate (when service-mode needs it):
-cp -r /path/to/AliothStudio/Framework/backend/common backend/vendor/common
-# Then add to backend/Cargo.toml: common = { path = "vendor/common" }
 
 # @alioth/* packages (when frontend needs them):
 mkdir -p frontend/packages

@@ -1,0 +1,66 @@
+{
+  "id": "test-service",
+  "domain": "测试",
+  "services": ["FA"],
+  "layer": 1,
+  "dtoDependencies": [],
+  "backendCrate": "alioth-service-test",
+  "hasBackend": true,
+  "hasFrontend": false,
+  "version": "0.1.0",
+  "ontology": {
+    "entities": [
+      {
+        "name": "TestProduct",
+        "table": "isahl.zc_id_lifecycle_test_product",
+        "inherits": "zc_id_lifecycle",
+        "coordinates": {
+          "scene": "FE",
+          "factor": "GBA",
+          "function": "↑_BA"
+        },
+        "field_mappings": [
+          {
+            "json_path": "name",
+            "column": "notice"
+          },
+          {
+            "json_path": "price",
+            "column": "qk_price",
+            "scalar": "zc_id_scal-price"
+          }
+        ],
+        "relationships": [
+          {
+            "target": "Category",
+            "type": "belongsToMany",
+            "via": "zc_id_lifecycle_r_test_product_category"
+          }
+        ]
+      },
+      {
+        "name": "Order",
+        "table": "isahl.zc_id_lifecycle_order",
+        "inherits": "zc_id_lifecycle",
+        "coordinates": {
+          "scene": "FE",
+          "factor": "FJA",
+          "function": "↓_CA"
+        },
+        "field_mappings": [
+          {
+            "json_path": "name",
+            "column": "notice"
+          },
+          {
+            "json_path": "amount",
+            "column": "qk_amount",
+            "scalar": "zc_id_scal-amount"
+          }
+        ],
+        "relationships": []
+      }
+    ]
+  },
+  "namespace": "Alioth"
+}

@@ -1,0 +1,13 @@
+[package]
+name = "meta-model"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Alioth 元数据模型契约 — 仅包含 IR-1/IR-2、版本、权限等纯数据类型"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+convert_case = { workspace = true }

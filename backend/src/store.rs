@@ -1,7 +1,5 @@
 //! AppCreator in-memory data store.
-//!
-//! Thread-safe HashMap backed. Drop-in replacement for sqlx Pool when
-//! DB migration is ready — implements the same ProjectStore trait.
+//! Thread-safe HashMap backed. Swappable to sqlx when DB migration is ready.
 
 use chrono::Utc;
 use std::collections::HashMap;
@@ -16,12 +14,8 @@ fn next_id() -> i64 {
     NEXT_ID.fetch_add(1, Ordering::SeqCst)
 }
 
-// ── Store ─────────────────────────────────────────────
-
 pub struct AppStore {
     pub projects: RwLock<HashMap<i64, Project>>,
-    pub sessions: RwLock<HashMap<i64, Session>>,
-    pub messages: RwLock<HashMap<i64, Message>>,
     pub templates: RwLock<HashMap<i64, Template>>,
     pub builds: RwLock<HashMap<i64, Build>>,
     pub deployments: RwLock<HashMap<i64, Deployment>>,
@@ -49,8 +43,6 @@ impl AppStore {
 
         Self {
             projects: RwLock::new(HashMap::new()),
-            sessions: RwLock::new(HashMap::new()),
-            messages: RwLock::new(HashMap::new()),
             templates: RwLock::new(templates),
             builds: RwLock::new(HashMap::new()),
             deployments: RwLock::new(HashMap::new()),
@@ -59,20 +51,13 @@ impl AppStore {
 
     // ── Projects ────────────────────────────────────
 
-    pub async fn list_projects(&self, namespace: &str, pagination: &PaginationParams) -> (Vec<Project>, i64) {
-        let projects = self.projects.read().await;
-        let mut list: Vec<Project> = projects
-            .values()
-            .filter(|p| p.namespace == namespace || namespace.is_empty())
-            .cloned()
-            .collect();
+    pub async fn list_projects(&self, _namespace: &str, pagination: &PaginationParams) -> (Vec<Project>, i64) {
+        let mut list: Vec<Project> = self.projects.read().await.values().cloned().collect();
         list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-
         let total = list.len() as i64;
         let offset = pagination.offset() as usize;
         let limit = pagination.per_page() as usize;
-        let page: Vec<Project> = list.into_iter().skip(offset).take(limit).collect();
-        (page, total)
+        (list.into_iter().skip(offset).take(limit).collect(), total)
     }
 
     pub async fn get_project(&self, id: i64) -> Option<Project> {
@@ -82,16 +67,10 @@ impl AppStore {
     pub async fn create_project(&self, req: CreateProjectRequest, user_id: i64) -> Project {
         let now = Utc::now();
         let project = Project {
-            id: next_id(),
-            name: req.name,
-            namespace: req.namespace,
-            description: req.description,
-            status: "draft".into(),
-            config: req.config,
-            template_id: req.template_id,
-            created_by: user_id,
-            created_at: now,
-            updated_at: now,
+            id: next_id(), name: req.name, namespace: req.namespace,
+            description: req.description, status: "draft".into(),
+            config: req.config, template_id: req.template_id,
+            created_by: user_id, created_at: now, updated_at: now,
         };
         self.projects.write().await.insert(project.id, project.clone());
         project
@@ -111,46 +90,6 @@ impl AppStore {
         self.projects.write().await.remove(&id).is_some()
     }
 
-    // ── Sessions ────────────────────────────────────
-
-    pub async fn create_session(&self, project_id: i64, user_id: i64) -> Session {
-        let now = Utc::now();
-        let session = Session {
-            id: next_id(),
-            project_id,
-            created_by: user_id,
-            created_at: now,
-            updated_at: now,
-        };
-        self.sessions.write().await.insert(session.id, session.clone());
-        session
-    }
-
-    pub async fn get_session(&self, id: i64) -> Option<Session> {
-        self.sessions.read().await.get(&id).cloned()
-    }
-
-    // ── Messages ────────────────────────────────────
-
-    pub async fn add_message(&self, session_id: i64, role: String, content: String) -> Message {
-        let msg = Message {
-            id: next_id(),
-            session_id,
-            role,
-            content,
-            created_at: Utc::now(),
-        };
-        self.messages.write().await.insert(msg.id, msg.clone());
-        msg
-    }
-
-    pub async fn list_messages(&self, session_id: i64) -> Vec<Message> {
-        let messages = self.messages.read().await;
-        let mut list: Vec<Message> = messages.values().filter(|m| m.session_id == session_id).cloned().collect();
-        list.sort_by(|a, b| a.created_at.cmp(&b.created_at));
-        list
-    }
-
     // ── Templates ───────────────────────────────────
 
     pub async fn list_templates(&self) -> Vec<Template> {
@@ -166,13 +105,7 @@ impl AppStore {
     // ── Builds ──────────────────────────────────────
 
     pub async fn create_build(&self, project_id: i64) -> Build {
-        let build = Build {
-            id: next_id(),
-            project_id,
-            status: "pending".into(),
-            log: String::new(),
-            created_at: Utc::now(),
-        };
+        let build = Build { id: next_id(), project_id, status: "pending".into(), log: String::new(), created_at: Utc::now() };
         self.builds.write().await.insert(build.id, build.clone());
         build
     }
@@ -191,14 +124,7 @@ impl AppStore {
     // ── Deployments ─────────────────────────────────
 
     pub async fn create_deployment(&self, project_id: i64, build_id: i64, target: String) -> Deployment {
-        let dep = Deployment {
-            id: next_id(),
-            project_id,
-            build_id,
-            status: "pending".into(),
-            target,
-            created_at: Utc::now(),
-        };
+        let dep = Deployment { id: next_id(), project_id, build_id, status: "pending".into(), target, created_at: Utc::now() };
         self.deployments.write().await.insert(dep.id, dep.clone());
         dep
     }

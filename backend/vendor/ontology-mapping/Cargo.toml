@@ -1,0 +1,16 @@
+[package]
+name = "ontology-mapping"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+yaml_serde = { workspace = true }
+anyhow = { workspace = true }
+regex = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+similar = "3.1"
+chrono = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }

@@ -2,16 +2,25 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../stores/auth";
 
 /**
- * Route guard — requires valid SSO JWT.
- * Redirects to root if not authenticated.
+ * Route guard — requires valid SSO JWT verified against backend.
+ * Shows spinner while auth is being checked.
  */
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  if (!isAuthenticated) {
-    // Preserve intended URL for post-login redirect
-    return <Navigate to="/" state={{ from: location }} replace />;
+  if (isLoading) {
+    return (
+      <div className="auth-page">
+        <div className="spinner" />
+      </div>
+    );
   }
+
+  if (!isAuthenticated) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
+
   return <Outlet />;
 }

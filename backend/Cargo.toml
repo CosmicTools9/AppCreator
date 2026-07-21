@@ -6,6 +6,9 @@ description = "AliothStudio AppCreator Service — AI-powered prototype creation
 default-run = "app-creator"
 
 [dependencies]
+app-agent = { path = "vendor/app-agent" }
+common = { path = "vendor/common" }
+llm = { path = "vendor/llm" }
 actix-web = "4.13"
 actix-cors = { workspace = true }
 tokio = { version = "1", features = ["full"] }
@@ -20,3 +23,5 @@ bcrypt = "0.19"
 env_logger = "0.11"
 log = "0.4"
 actix-files = "0.6"
+async-trait = { workspace = true }
+futures = { workspace = true }

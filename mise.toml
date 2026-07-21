@@ -1,0 +1,4 @@
+[tasks]
+dev = "bash scripts/dev.sh"
+setup = "cd backend && cargo fetch && cargo check && cd ../frontend && pnpm install"
+build = "cd backend && cargo build --release && cd ../frontend && bun run build"

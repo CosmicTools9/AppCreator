@@ -2,19 +2,36 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./stores/provider";
 import { AppLayout } from "./components/AppLayout";
 import { LandingPage } from "./pages/LandingPage";
+import { LoginPage } from "./pages/LoginPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { useAuth } from "./stores/auth";
+
+/** Redirect authenticated users from / to /workspace. */
+function IndexRedirect() {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) return <Navigate to="/workspace" replace />;
+  return <LandingPage />;
+}
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Public: login page (no AppLayout) */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Public: landing page with AppLayout */}
         <Route element={<AppLayout />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/workspace" element={<WorkspacePage />} />
-          </Route>
+          <Route path="/" element={<IndexRedirect />} />
         </Route>
+
+        {/* Protected: workspace requires auth */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/workspace" element={<WorkspacePage />} />
+        </Route>
+
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

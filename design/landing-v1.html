@@ -504,7 +504,25 @@
       :root { font-size: 15px; }
       .container { padding: 0 16px; }
     }
-  </style>
+
+/* ═══════════════════════════════════════
+   Pricing
+   ═══════════════════════════════════════ */
+.pricing-section { text-align: center; margin: 0 auto; max-width: 1200px; }
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 960px; margin: 0 auto; }
+.pricing-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px; text-align: left; display: flex; flex-direction: column; }
+.pricing-card.featured { border-color: var(--accent); position: relative; }
+.pricing-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 16px; border-radius: 100px; }
+.pricing-tier { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+.pricing-price { margin-bottom: 24px; }
+.pricing-amount { font-size: 36px; font-weight: 800; }
+.pricing-period { font-size: 16px; color: var(--text-secondary); margin-left: 4px; }
+.pricing-features { list-style: none; padding: 0; margin: 0 0 28px; flex: 1; }
+.pricing-features li { font-size: 14px; color: var(--text-secondary); padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+.pricing-features li::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; opacity: 0.7; }
+@media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; max-width: 400px; } }
+@media (min-width: 901px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>
 </head>
 <body>
 
@@ -549,17 +567,62 @@
         <a href="#" class="btn btn-secondary">预览演示</a>
       </div>
 
-      <!-- showcase -->
-      <div class="hero-showcase">
-        <div class="hero-showcase-placeholder">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <path d="M9 9h6M9 12h6M9 15h4"/>
-          </svg>
-          <p>产品预览图待补 — 准备截取实际生成的管理后台界面</p>
+      <!-- ═══ Chat demo mockup ═══ -->
+      <div class="hero-demo">
+        <div class="demo-chat">
+          <!-- sidebar -->
+          <div class="demo-sidebar">
+            <div class="demo-sidebar-header">AppCreator</div>
+            <div class="demo-session active">客户管理后台</div>
+            <div class="demo-session">审批流程 v2</div>
+            <div class="demo-session">库存看板</div>
+          </div>
+          <!-- main chat area -->
+          <div class="demo-main">
+            <div class="demo-msg-row user">
+              <div class="demo-avatar user">U</div>
+              <div class="demo-bubble user">
+                帮我创建一个客户管理后台，需要包含客户列表、详情页和新建表单
+              </div>
+            </div>
+            <div class="demo-msg-row ai">
+              <div class="demo-avatar ai">AI</div>
+              <div class="demo-bubble ai">
+                <strong>好的，我来为你生成客户管理后台原型。</strong><br/><br/>
+                该应用将包含以下功能模块：<br/><br/>
+                <strong>📋 客户列表</strong><br/>
+                · 搜索/筛选/分页表格<br/>
+                · 批量操作（删除、导出）<br/>
+                · 快速查看联系人<br/><br/>
+                <strong>📝 客户详情页</strong><br/>
+                · 基本信息展示（名称、行业、联系方式）<br/>
+                · 关联订单与合同列表<br/>
+                · 操作日志时间线<br/><br/>
+                <strong>➕ 新建客户表单</strong><br/>
+                · 字段：公司名称、行业、联系人、电话、邮箱、备注<br/>
+                · 保存后自动跳转详情页<br/><br/>
+                是否开始生成？
+              </div>
+            </div>
+            <div class="demo-msg-row user">
+              <div class="demo-avatar user">U</div>
+              <div class="demo-bubble user">开始生成</div>
+            </div>
+            <div class="demo-msg-row ai">
+              <div class="demo-avatar ai">AI</div>
+              <div class="demo-bubble ai success">
+                ✅ 原型已生成！<br/>
+                <a href="#" class="demo-link">预览客户管理后台 →</a>
+              </div>
+            </div>
+            <!-- input bar -->
+            <div class="demo-input-bar">
+              <input class="demo-input" type="text" value="开始生成" readonly disabled />
+              <button class="demo-send-btn" disabled>发送</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
   </section>
 
   <!-- ═══ HOW IT WORKS ═══ -->
@@ -693,6 +756,58 @@
     </div>
   </section>
 
+
+  <hr class="section-divider" />
+
+  <!-- ═══ PRICING ═══ -->
+  <section class="pricing-section section">
+    <div class="container">
+      <div class="section-label">—— 定价</div>
+      <h2 class="text-h1" style="margin-bottom:48px">选择适合你的方案</h2>
+      <div class="pricing-grid" style="max-width:960px">
+        <div class="pricing-card">
+          <h3 class="pricing-tier">免费预览</h3>
+          <p class="pricing-price"><span class="pricing-amount">¥0</span></p>
+          <ul class="pricing-features">
+            <li>AI 对话创建应用原型</li>
+            <li>原型预览与下载</li>
+            <li>无限次迭代修改</li>
+            <li>社区支持</li>
+          </ul>
+          <a href="/login" class="btn btn-secondary" style="width:100%;justify-content:center;display:flex">免费开始</a>
+        </div>
+        <div class="pricing-card featured">
+          <div class="pricing-badge">推荐</div>
+          <h3 class="pricing-tier">专业订阅</h3>
+          <p class="pricing-price"><span class="pricing-amount">¥1,399</span><span class="pricing-period">/月</span></p>
+          <ul class="pricing-features">
+            <li>每月 60 个产品原型额度</li>
+            <li>每个原型无限次对话迭代</li>
+            <li>首次源码包下载 <strong>¥4,999</strong></li>
+            <li>重新生成不计费</li>
+            <li>再次下载仅 <strong>¥19.9/次</strong></li>
+            <li>优先技术支持</li>
+          </ul>
+          <a href="/login" class="btn btn-primary" style="width:100%;justify-content:center;display:flex">立即订阅</a>
+        </div>
+        <!-- AliothStudio = 企业定制 -->
+        <div class="pricing-card">
+          <h3 class="pricing-tier">AliothStudio</h3>
+          <p class="pricing-price" style="font-size:14px;color:var(--text-secondary);margin-bottom:4px">企业定制方案</p>
+          <p class="pricing-price"><span class="pricing-amount">¥499,999</span></p>
+          <ul class="pricing-features">
+            <li>基于元数据的自定义扩展</li>
+            <li>从 `isahl_meta` 自定义实体与字段</li>
+            <li>私域部署（Docker 单机或集群）</li>
+            <li>独立 SSO 认证与 NGAC 权限</li>
+            <li>代码包无限下载</li>
+            <li>优先技术支持</li>
+          </ul>
+          <a href="/login" class="btn btn-secondary" style="width:100%;justify-content:center;display:flex">联系销售</a>
+        </div>
+      </div>
+    </div>
+  </section>
   <!-- ═══ CTA ═══ -->
   <section class="cta-section">
     <div class="container">

@@ -1,6 +1,9 @@
 use actix_files::NamedFile;
 use actix_web::{middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer};
+use app_creator::chat;
 use app_creator::handlers;
+use app_creator::middleware::SsoAuthMiddleware;
+use app_creator::store::AppStore;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -12,36 +15,70 @@ async fn main() -> std::io::Result<()> {
 
     eprintln!("Starting AliothStudio AppCreator Service...");
 
-    // Load config
+    // Database pool (required for AppAgent persistence)
+    let database_url = std::env::var("DATABASE_URL").expect(
+        "DATABASE_URL must be set. Use scripts/db/ensure-schema.sh to initialize the schema.");
+    let pool = sqlx::PgPool::connect(&database_url)
+        .await
+        .expect("Failed to connect to database");
+    let pool_data: web::Data<sqlx::PgPool> = web::Data::new(pool);
+
+    // LLM service (required for AppAgent)
+    let llm_config = llm::LlmServiceConfig::from_env();
+    let llm_service = llm::LlmService::new(llm_config)
+        .expect("Failed to initialize LLM service; check LLM_PROVIDER / LLM_API_KEY");
+    let llm_data = web::Data::new(llm_service);
+
+    // Config
     let server_addr =
         std::env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:49495".to_string());
-
-    // Auth key: optional — dev mode runs without it
-    let decoding_key: Option<_> = handlers::load_key();
-    let key_data = web::Data::new(decoding_key);
     let frontend_dir = std::env::var("FRONTEND_DIR").unwrap_or_else(|_| "./frontend".to_string());
 
-    // Initialize logger
-    let mut logger_builder =
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
-    logger_builder.format_timestamp_millis();
-    logger_builder.init();
-    log::info!("AppCreator config loaded: server_addr={}, frontend_dir={}", server_addr, frontend_dir);
+    // Auth middleware verifies SSO ES256 JWT and injects RequestContext.
+    // Public paths (/health, /api/creator/status) are handled internally.
 
+    // Logger
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp_millis()
+        .init();
+    log::info!("AppCreator config loaded: server_addr={}", server_addr);
+
+    // In-memory store (still used for projects/templates/builds until Phase 5 migration)
+    let store = web::Data::new(AppStore::new());
     let frontend_dir_data = web::Data::new(frontend_dir);
 
     log::info!("AppCreator Service listening on {}", server_addr);
 
     HttpServer::new(move || {
         App::new()
+            // API v1 — all /api/creator/* endpoints
             .service(
                 web::scope("/api/creator")
+                    // P0 — Projects CRUD
                     .route("/projects", web::get().to(handlers::list_projects))
                     .route("/projects", web::post().to(handlers::create_project))
                     .route("/projects/{id}", web::get().to(handlers::get_project))
+                    .route("/projects/{id}", web::put().to(handlers::update_project))
+                    .route("/projects/{id}", web::delete().to(handlers::delete_project))
+                    // P1 — Chat sessions (AppAgent-driven)
+                    .configure(chat::configure_routes)
+                    // P1 — Templates
+                    .route("/templates", web::get().to(handlers::list_templates))
+                    .route("/templates/{id}", web::get().to(handlers::get_template))
+                    // P2 — Builds + Deployments
+                    .route("/projects/{id}/build", web::post().to(handlers::trigger_build))
+                    .route("/projects/{id}/builds", web::get().to(handlers::list_builds))
+                    .route("/projects/{id}/builds/{bid}", web::get().to(handlers::get_build))
+                    .route("/projects/{id}/deploy", web::post().to(handlers::trigger_deploy))
+                    .route("/projects/{id}/deployments", web::get().to(handlers::list_deployments))
+                    // P3 — User
+                    .route("/user/me", web::get().to(handlers::get_current_user))
             )
             .wrap(Logger::default())
-            .app_data(key_data.clone())
+            .wrap(SsoAuthMiddleware::new())
+            .app_data(pool_data.clone())
+            .app_data(llm_data.clone())
+            .app_data(store.clone())
             .app_data(frontend_dir_data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/creator/status", web::get().to(api_status))
@@ -64,7 +101,7 @@ async fn api_status() -> HttpResponse {
     }))
 }
 
-/// SPA fallback: serve requested file if it exists, otherwise serve index.html.
+/// SPA fallback: serve requested file or index.html.
 async fn spa_fallback(
     req: HttpRequest,
     frontend_dir: web::Data<String>,
@@ -76,6 +113,5 @@ async fn spa_fallback(
     if file_path.is_file() {
         return Ok(NamedFile::open(file_path)?);
     }
-
     Ok(NamedFile::open(format!("{}/index.html", frontend_dir.as_ref()))?)
 }

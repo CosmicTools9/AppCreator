@@ -1,11 +1,13 @@
 //! AppCreator shared library
 //!
 //! 独立服务，与 Meta 仅共享 DB。
-//! API 无交互，认证通过 SSO JWT (RS256)。
+//! API 无交互，认证通过 SSO JWT (ES256)。
 
-pub mod auth;
+pub mod chat;
 pub mod docker;
 pub mod handlers;
+pub mod meta_reader;
+pub mod middleware;
 pub mod models;
 pub mod store;
 use serde::{Deserialize, Serialize};

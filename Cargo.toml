@@ -1,5 +1,5 @@
 [workspace]
-members = ["backend"]
+members = ["backend", "backend/vendor/*"]
 resolver = "2"
 
 [workspace.package]
@@ -10,10 +10,103 @@ license = "MIT"
 repository = "https://github.com/CosmicTools9/AppCreator"
 
 [workspace.dependencies]
-# Shared by app-creator backend
+# Async runtime & web
+tokio = { version = "1", features = ["full"] }
+actix-web = "4.13"
 actix-cors = "0.7"
+
+# Database
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "uuid", "chrono", "macros", "migrate", "rust_decimal"] }
+tokio-postgres = "0.7"
+
+# Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-yaml_serde = "0.10"
-thiserror = "2.0.18"
+bincode = "1.3"
+
+# Time & UUID
 chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Error handling
+thiserror = "2.0.18"
+anyhow = "1"
+
+# Crypto & security
+ring = "0.17"
+base64 = "0.22"
+aes-gcm = "0.11"
+sha2 = "0.11"
+sha1 = "0.11"
+sha3 = "0.10"
+yaml_serde = "0.10"
+subtle = "2.6"
+bcrypt = "0.19"
+jsonwebtoken = "10"
+p256 = { version = "0.14", features = ["ecdh"] }
+ecdsa = "0.17"
+pem = "3"
+rand = "0.10"
+
+# Network / HTTP
+reqwest = { version = "0.13", features = ["json"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-native-certs = "0.8"
+rustls-pemfile = "2"
+
+# Concurrency & data structures
+futures = "0.3"
+futures-util = "0.3"
+crossbeam-utils = "0.8"
+async-trait = "0.1"
+once_cell = "1.21"
+mio = { version = "1.1", features = ["net", "os-poll", "os-ext"] }
+disruptor = "4.3.0"
+
+# Metrics & logging
+prometheus = "0.14"
+log = "0.4"
+
+# Data processing
+bytes = "1.11"
+petgraph = { version = "0.8", features = ["serde"] }
+moka = { version = "0.12", features = ["future"] }
+
+# Utilities
+regex = "1"
+zip = "2"
+convert_case = "0.7"
+pluralizer = "0.4"
+dotenvy = "0.15"
+
+# Numeric
+rust_decimal = { version = "1.36", features = ["serde"] }
+
+# CRC
+crc32fast = "1.4"
+crc = "3"
+
+# Build / proc macro
+proc-macro2 = "1.0"
+quote = "1.0"
+criterion = { version = "0.8", features = ["html_reports"] }
+
+tempfile = "3.0"
+
+# File / config
+toml = "0.8"
+fs2 = "0.4"
+
+# AppCreator-specific dependencies (not in Framework workspace)
+env_logger = "0.11"
+actix-files = "0.6"
+json5 = "1.3"
+walkdir = "2.5"
+dirs = "6.0"
+rayon = "1.10"
+md5 = "0.8"
+hex = "0.4"
+similar = "3.1"
+diffy = "0.5"
+clap = { version = "4.5", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }

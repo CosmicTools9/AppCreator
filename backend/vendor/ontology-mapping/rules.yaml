@@ -1,0 +1,376 @@
+# rules.yaml — Alioth 模型内部确定性适配规则
+#
+# 职责: 消费 LLM 阶段 (alioth-ontology Phase 2/3b) 产出的 entity/field 名，
+#       执行 entity→table→column 的确定性 DB 绑定（Phase 3a）。
+#       不参与原型业务语义推演。
+#
+# field_patterns:      字段名 → 物理列映射（regex + 语义分组）
+# scalar_inference:    业务字段（amount/price/qty/date）→ 标量表映射
+# nesting_rules:       嵌套结构 → 独立实体/展平/JSONB 决策
+# coordinate_inference: Alioth function code 候选适配规则（实体名→默认 function）
+#                       LLM 结合原型语义选择候选坐标，最终由 DB 存在性校验确认。
+#                       非语义推演源——它不是"唯一推演器"而是"适配建议"。
+#
+# 调用方 MUST 先完成 alioth-ontology Phase 2 LLM 语义对齐，再将
+# entity/field/scene_code/factor_code/function_code 传入本配置消费。
+
+version: "0.1.0"
+alioth_model: "10.0.0"
+
+field_patterns:
+  exact:
+    - pattern: "^(name|title|label)$"
+      column: "notice"
+      confidence: 0.95
+    - pattern: "^(code|sku|barcode)$"
+      column: "code"
+      confidence: 0.90
+    - pattern: "^(created_at|create_time)$"
+      column: "zc_ad_object.created_at"
+      confidence: 0.95
+    - pattern: "^(updated_at|update_time)$"
+      column: "zc_ad_object.updated_at"
+      confidence: 0.95
+    - pattern: "^(enable|enabled|is_active)$"
+      column: "enable"
+      confidence: 0.95
+    - pattern: "^(flag)$"
+      column: "flag"
+      confidence: 0.90
+    - pattern: "^(number|o_number)$"
+      column: "o_number"
+      confidence: 0.90
+    - pattern: "^(id)$"
+      column: "id"
+      confidence: 0.95
+
+  prefix:
+    - pattern: "^fk_"
+      column_template: "{field}"
+      confidence: 0.95
+    - pattern: "^qk_"
+      column_template: "{field}"
+      confidence: 0.95
+    - pattern: "^sk_"
+      column_template: "{field}"
+      confidence: 0.90
+    - pattern: "^ck_"
+      column_template: "{field}"
+      confidence: 0.90
+    - pattern: "^tk_"
+      column_template: "{field}"
+      confidence: 0.90
+    - pattern: "^ref_"
+      column_template: "fk_{rest}"
+      confidence: 0.80
+
+  semantic_groups:
+    - triggers:
+        ["name", "title", "label", "display_name", "full_name", "subject_name"]
+      preference: "notice"
+      confidence: 0.80
+    - triggers:
+        [
+          "desc",
+          "description",
+          "remark",
+          "note",
+          "notes",
+          "comment",
+          "comments",
+        ]
+      preference: "notice"
+      confidence: 0.80
+    - triggers: ["number", "o_number", "biz_number", "order_no", "ref_number"]
+      preference: "o_number"
+      confidence: 0.80
+    - triggers: ["category", "classification", "class", "cate"]
+      preference: "ck_category"
+      confidence: 0.80
+    - triggers: ["tags", "labels", "tag"]
+      preference: "tk_tags"
+      confidence: 0.80
+    - triggers: ["currency", "money", "unit_price", "cost_currency"]
+      preference: "sk_currency"
+      confidence: 0.80
+    - triggers: ["unit", "measure_unit", "uom"]
+      preference: "sk_unit"
+      confidence: 0.80
+    - triggers: ["batch_no", "batch", "lot", "batch_number"]
+      preference: "tk_batch_no"
+      confidence: 0.80
+    - triggers: ["version", "revision", "iteration"]
+      preference: "sk_version"
+      confidence: 0.75
+    - triggers: ["subject", "entity_name"]
+      preference: "subject"
+      confidence: 0.75
+    - triggers: ["sprint", "milestone", "phase"]
+      preference: "tk_sprint"
+      confidence: 0.65
+
+  contextual:
+    - pattern: "^type$"
+      candidates:
+        - column: "_t_"
+          when:
+            siblings_contain: ["_f_", "number"]
+          confidence: 0.70
+        - column: "ck_category"
+          when:
+            entity_type: "classification"
+          confidence: 0.65
+      default: "_t_"
+      confidence: 0.50
+    - pattern: "^status$"
+      candidates:
+        - column: "fk_status"
+          when:
+            entity_type: "lifecycle"
+          confidence: 0.80
+        - column: "sk_status"
+          when:
+            entity_type: "simple"
+          confidence: 0.70
+      default: "fk_status"
+      confidence: 0.60
+    - pattern: "^category$"
+      candidates:
+        - column: "fk_category"
+          confidence: 0.70
+        - column: "ck_category"
+          confidence: 0.65
+      default: "ck_category"
+      confidence: 0.55
+    - pattern: "^unit$"
+      candidates:
+        - column: "fk_unit"
+          confidence: 0.70
+      default: "fk_unit"
+      confidence: 0.55
+    - pattern: "^currency$"
+      candidates:
+        - column: "sk_currency"
+          confidence: 0.75
+      default: "sk_currency"
+      confidence: 0.55
+    - pattern: "^version$"
+      candidates:
+        - column: "sk_version"
+          confidence: 0.70
+        - column: "fk_version"
+          confidence: 0.65
+      default: "sk_version"
+      confidence: 0.55
+    - pattern: "^subject$"
+      candidates:
+        - column: "fk_subject"
+          confidence: 0.70
+      default: "fk_subject"
+      confidence: 0.55
+    - pattern: "^plan$"
+      candidates:
+        - column: "fk_plan"
+          confidence: 0.70
+      default: "fk_plan"
+      confidence: 0.55
+    - pattern: "^editor$"
+      candidates:
+        - column: "fk_editor"
+          confidence: 0.70
+      default: "fk_editor"
+      confidence: 0.55
+    - pattern: "^previous$"
+      candidates:
+        - column: "fk_previous"
+          confidence: 0.70
+      default: "fk_previous"
+      confidence: 0.55
+    - pattern: "^attachments?$"
+      candidates:
+        - column: "attachments"
+          confidence: 0.75
+      default: "attachments"
+      confidence: 0.55
+    - pattern: "^contacts?$"
+      candidates:
+        - column: "contacts"
+          confidence: 0.70
+      default: "contacts"
+      confidence: 0.55
+
+scalar_inference:
+  rules:
+    - triggers:
+        [
+          "amount",
+          "total",
+          "sum",
+          "value",
+          "cost",
+          "revenue",
+          "income",
+          "outgo",
+          "expense",
+          "fee",
+          "tax",
+          "discount",
+          "write-off",
+          "budget",
+        ]
+      scalar_table: "zc_id_scal-amount"
+      column_prefix: "qk_amount"
+      confidence: 0.90
+    - triggers:
+        [
+          "price",
+          "unit_price",
+          "list_price",
+          "retail_price",
+          "cost_price",
+          "purchase_price",
+        ]
+      scalar_table: "zc_id_scal-price"
+      column_prefix: "qk_price"
+      confidence: 0.90
+    - triggers:
+        [
+          "qty",
+          "quantity",
+          "count",
+          "volume",
+          "weight",
+          "length",
+          "area",
+          "majority",
+          "share",
+          "percentage",
+          "rate",
+          "ratio",
+        ]
+      scalar_table: "zc_id_scal-common"
+      column_prefix: "qk_qty"
+      confidence: 0.85
+    - triggers:
+        [
+          "date",
+          "time",
+          "timestamp",
+          "due",
+          "deadline",
+          "start",
+          "end",
+          "schedule",
+          "sprint",
+          "cycle",
+          "period",
+        ]
+      scalar_table: "zc_id_scal-date"
+      column_prefix: "qk_date"
+      confidence: 0.85
+
+nesting_rules:
+  - when:
+      is_array: true
+      element_has_fields: ">2"
+    action: "independent_entity"
+    relationship: "hasMany"
+    confidence: 0.90
+  - when:
+      is_object: true
+      fields_count: "≤3"
+      shared: false
+    action: "flatten"
+    confidence: 0.75
+  - when:
+      is_object: true
+      fields_count: ">5"
+      structure: "variable"
+    action: "jsonb"
+    confidence: 0.60
+
+coordinate_inference:
+  scene:
+    source: "input.scene_code"
+    confidence: 1.0
+  factor:
+    source: "input.factor_ids"
+    confidence: 0.90
+  function:
+    rules:
+      - entity_types:
+          [
+            "order",
+            "contract",
+            "agreement",
+            "statement",
+            "voucher",
+            "invoice",
+            "bill",
+            "appeal",
+            "formula",
+            "license",
+            "detail",
+          ]
+        default: "↓_GD"
+        confidence: 0.80
+      - entity_types:
+          [
+            "product",
+            "item",
+            "catalog",
+            "unit",
+            "category",
+            "tags",
+            "consensus",
+          ]
+        default: "↑_DA"
+        confidence: 0.75
+      - entity_types:
+          [
+            "inventory",
+            "warehouse",
+            "stock",
+            "bom",
+            "storage",
+            "production",
+            "counting",
+          ]
+        default: "↓_EE"
+        confidence: 0.75
+      - entity_types:
+          ["transport", "shipment", "delivery", "container", "loading"]
+        default: "↓_GG"
+        confidence: 0.75
+      - entity_types:
+          [
+            "document",
+            "file",
+            "operation",
+            "snapshot",
+            "task",
+            "plan",
+            "process",
+          ]
+        default: "↓_CH"
+        confidence: 0.70
+      - entity_types:
+          [
+            "contacts",
+            "entity",
+            "message",
+            "subjects",
+            "identity",
+            "object",
+            "event",
+            "device",
+          ]
+        default: "↓_ES"
+        confidence: 0.70
+      - entity_types:
+          ["evaluation", "segment", "geometry", "rate", "ratio", "scale"]
+        default: "↑_GA"
+        confidence: 0.70
+      - entity_types: ["level", "standard", "term", "protocol", "law"]
+        default: "↓.CB"
+        confidence: 0.65

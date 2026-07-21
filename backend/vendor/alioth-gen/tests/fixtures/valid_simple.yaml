@@ -1,0 +1,116 @@
+# 简单有效的 DSL 示例
+version: "1.0"
+meta_model:
+  name: simple_model
+  display_name: 简单模型
+  description: 用于测试的简单元模型
+collections:
+  - name: users
+    display_name: 用户
+    description: 用户表
+    collection_type: general
+    element_category: person
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+        is_system_field: true
+        order_index: 0
+      - name: username
+        field_type: string
+        nullable: false
+        order_index: 1
+        ui:
+          ui_type: input
+          placeholder: 请输入用户名
+        validation:
+          required: true
+          min_length: 3
+          max_length: 50
+      - name: email
+        field_type: string
+        nullable: true
+        order_index: 2
+        ui:
+          ui_type: email
+        validation:
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    indexes:
+      - name: idx_users_username
+        fields:
+          - username
+        unique: true
+      - name: idx_users_email
+        fields:
+          - email
+        unique: true
+        index_type: b_tree
+
+  - name: posts
+    display_name: 文章
+    description: 文章表
+    collection_type: general
+    element_category: goods
+    fields:
+      - name: id
+        field_type: uuid
+        nullable: false
+        primary_key: true
+        is_system_field: true
+        order_index: 0
+      - name: title
+        field_type: string
+        nullable: false
+        order_index: 1
+        ui:
+          ui_type: input
+          placeholder: 请输入标题
+        validation:
+          required: true
+          max_length: 200
+      - name: content
+        field_type: text
+        nullable: true
+        order_index: 2
+        ui:
+          ui_type: markdown
+      - name: author_id
+        field_type: belongs_to
+        nullable: false
+        order_index: 3
+        relation:
+          target: users
+          foreign_key: author_id
+          on_delete: restrict
+          on_update: cascade
+    indexes:
+      - name: idx_posts_author
+        fields:
+          - author_id
+        unique: false
+
+relations:
+  - name: user_posts
+    from: users
+    to: posts
+    relation_type: one_to_many
+    foreign_key: author_id
+    description: 用户的文章
+
+enums:
+  - name: post_status
+    display_name: 文章状态
+    values:
+      - value: draft
+        label: 草稿
+        color: "#999999"
+        order: 0
+      - value: published
+        label: 已发布
+        color: "#52c41a"
+        order: 1
+      - value: archived
+        label: 已归档
+        color: "#faad14"
+        order: 2
