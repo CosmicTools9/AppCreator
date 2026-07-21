@@ -1,14 +1,14 @@
 [tasks]
 setup = "cargo fetch && cargo check"
-dev = "bash ../../scripts/lib/guard-mise-task.sh AppCreator -- cargo run"
+dev = "bash ../scripts/lib/guard-mise-task.sh AppCreator -- cargo run"
 build = "cargo build --release"
-test = "bash ../../scripts/lib/guard-mise-task.sh AppCreator --mode test -- cargo test"
+test = "bash ../scripts/lib/guard-mise-task.sh AppCreator --mode test -- cargo test"
 lint = "cargo clippy -- -D warnings && cargo fmt --check"
 fmt = "cargo fmt"
 clean = "cargo clean"
 
 [env]
 _.file = ".env"
-_.source = "../../scripts/env/decrypt-env.sh"
+_.source = "../scripts/env/decrypt-env.sh"
 RUST_LOG = "info"
 SERVER_ADDR = "127.0.0.1:49495"

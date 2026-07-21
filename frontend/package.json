@@ -11,9 +11,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@alioth/api": "workspace:*",
-    "@alioth/components": "workspace:*",
-    "@alioth/hooks": "workspace:*",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1"

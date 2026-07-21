@@ -9,6 +9,6 @@ preview = "bun run preview"
 
 [env]
 _.file = ".env.local"
-_.source = "../../scripts/env/decrypt-env.sh"
+_.source = "../scripts/env/decrypt-env.sh"
 NODE_ENV = "development"
 VITE_API_URL = "http://localhost:49495"

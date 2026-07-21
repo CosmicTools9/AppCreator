@@ -266,6 +266,7 @@ mod tests {
         assert!(lock.contains("gateway-backend:v0.2.0"));
     }
 
+    #[ignore = "requires monorepo: Pre-Proc/ not vendored in standalone repo"]
     #[test]
     fn test_compose_references_gateway_image() {
         let cfg = AppConfig {
