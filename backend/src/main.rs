@@ -1,5 +1,6 @@
 use actix_files::NamedFile;
 use actix_web::{middleware::Logger, web, App, HttpRequest, HttpResponse, HttpServer};
+use app_creator::handlers;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -14,6 +15,10 @@ async fn main() -> std::io::Result<()> {
     // Load config
     let server_addr =
         std::env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:49495".to_string());
+
+    // Auth key: optional — dev mode runs without it
+    let decoding_key: Option<_> = handlers::load_key();
+    let key_data = web::Data::new(decoding_key);
     let frontend_dir = std::env::var("FRONTEND_DIR").unwrap_or_else(|_| "./frontend".to_string());
 
     // Initialize logger
@@ -29,8 +34,15 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .app_data(frontend_dir_data.clone())
+            .service(
+                web::scope("/api/creator")
+                    .route("/projects", web::get().to(handlers::list_projects))
+                    .route("/projects", web::post().to(handlers::create_project))
+                    .route("/projects/{id}", web::get().to(handlers::get_project))
+            )
             .wrap(Logger::default())
+            .app_data(key_data.clone())
+            .app_data(frontend_dir_data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/creator/status", web::get().to(api_status))
             .default_service(web::route().to(spa_fallback))

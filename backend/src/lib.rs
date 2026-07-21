@@ -5,7 +5,9 @@
 
 pub mod auth;
 pub mod docker;
-
+pub mod handlers;
+pub mod models;
+pub mod store;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
