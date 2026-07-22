@@ -40,16 +40,6 @@ pub struct UpdateProjectRequest {
     pub config: Option<serde_json::Value>,
 }
 
-// ── Template ──────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Template {
-    pub id: i64,
-    pub name: String,
-    pub description: String,
-    pub category: String,
-}
-
 // ── Build ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

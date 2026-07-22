@@ -223,33 +223,44 @@ async fn main() -> Result<()> {
             let cands =
                 discovery::locate_tables(&pool, &entity, hint.as_deref(), &fields, top).await?;
             print_json(&cands);
-            }
-            "transfer" => {
+        }
+        "transfer" => {
             // transfer --namespace <ns> [--services-dir <dir>] [--rules <path>] [--gaps <json>]
             let ns = arg(&args, "--namespace").unwrap_or_default();
-            let services_dir = arg(&args, "--services-dir").unwrap_or_else(|| {
-                format!("Pre-Proc/{}/Sources/Services", ns)
-            });
-            let rules_path = arg(&args, "--rules").unwrap_or_else(|| {
-                "Meta/backend/ontology-mapping/rules.yaml".to_string()
-            });
+            let services_dir = arg(&args, "--services-dir")
+                .unwrap_or_else(|| format!("Pre-Proc/{}/Sources/Services", ns));
+            let rules_path = arg(&args, "--rules")
+                .unwrap_or_else(|| "Meta/backend/ontology-mapping/rules.yaml".to_string());
             let gaps_json = arg(&args, "--gaps").unwrap_or_else(|| "[]".to_string());
             let gaps: Vec<serde_json::Value> = serde_json::from_str(&gaps_json).unwrap_or_default();
 
             let mapper = OntologyMapper::load(&rules_path, &services_dir)?;
-            let root = std::path::Path::new(".");
+
             let mut mapped: Vec<serde_json::Value> = Vec::new();
             for gap in &gaps {
                 let domain_id = gap.get("domain_id").and_then(|v| v.as_str()).unwrap_or("");
-                let fields: Vec<String> = gap.get("new_fields")
+                let fields: Vec<String> = gap
+                    .get("new_fields")
                     .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().filter_map(|f| f.get("name").and_then(|n| n.as_str()).map(|s| s.to_string())).collect())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|f| {
+                                f.get("name")
+                                    .and_then(|n| n.as_str())
+                                    .map(|s| s.to_string())
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default();
-                if domain_id.is_empty() { continue; }
-                let candidates = discovery::match_tables(&pool, domain_id, &fields, None, 3).await?;
+                if domain_id.is_empty() {
+                    continue;
+                }
+                let candidates =
+                    discovery::match_tables(&pool, domain_id, &fields, None, 3).await?;
                 if let Some(best) = candidates.first() {
                     if best.score >= 0.5 {
-                        let input = discovery::to_mapping_input(domain_id, &best.table, &fields, "", &[]);
+                        let input =
+                            discovery::to_mapping_input(domain_id, &best.table, &fields, "", &[]);
                         let output = mapper.map(&input);
                         if let Some(entity) = output.entities.first() {
                             mapped.push(serde_json::json!({
@@ -264,7 +275,9 @@ async fn main() -> Result<()> {
                     }
                 }
             }
-            print_json(&serde_json::json!({ "mapped": mapped, "total": gaps.len(), "matched": mapped.len() }));
+            print_json(
+                &serde_json::json!({ "mapped": mapped, "total": gaps.len(), "matched": mapped.len() }),
+            );
         }
         _ => {
             eprintln!("ontology-mapping — 本体映射发现与字段映射 CLI");

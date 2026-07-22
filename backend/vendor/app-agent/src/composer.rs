@@ -33,13 +33,6 @@ use std::path::{Path, PathBuf};
 /// `Meta/backend/`、`deploy/meta/bin/` 还是项目根目录启动，
 /// 都能可靠定位到正确的 `Pre-Proc/Apps/` 绝对路径。
 pub(crate) fn resolve_project_root() -> PathBuf {
-    // Allow override via environment (used by AppCreator standalone binary).
-    if let Ok(root) = std::env::var("ALIOTH_STUDIO_ROOT") {
-        let p = PathBuf::from(root);
-        if p.join("pnpm-workspace.yaml").is_file() && p.join("Pre-Proc").is_dir() {
-            return p;
-        }
-    }
     let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     for _ in 0..8 {
         // 同时满足两个条件才是真正的项目根
@@ -167,6 +160,14 @@ async fn scan_module_registry(
         }
     }
     Ok((model_registry, module_versions))
+}
+
+/// 对齐 Gateway `runtime-engine` `extension.rs::load_from_dir` 的 `ProfilesWrapper` 契约：
+/// `profiles.yaml` 顶层为 `profiles: { <profile_name>: AppModelConfig }`。
+/// AppAgent 固定以 `"default"` 作为主档案名写入，保证与 `merge_profiles(["default"])` 命中。
+#[derive(Serialize)]
+struct ProfilesWrapper {
+    profiles: std::collections::HashMap<String, AppModelConfig>,
 }
 async fn write_extensions_to_staging<F>(
     plan: &FlowPlan,
@@ -696,8 +697,8 @@ where
     // 闭包：失败时清理 staging 目录
     let result: Result<ComposeResult, ComposerError> = async {
         // ── 2. 扫描模块元数据 → model_registry + versions ──────────────
-        // model_registry 写入独立文件 model-registry.json(因 app.schema.json
-        // 的 config additionalProperties: false 禁止 modelRegistry/moduleVersions)
+        // model_registry 写入 extensions/profiles.yaml(对齐 Gateway ProfilesWrapper 契约,
+        // 因 app.schema.json 的 config additionalProperties: false 禁止 modelRegistry/moduleVersions)
         let (model_registry, module_versions) = scan_module_registry(plan).await?;
 
         // ── 2.1 从 FlowPlan.app_meta 读取 LLM 输出的 App 级配置 ────────
@@ -807,16 +808,9 @@ where
         write_file(&stage_dir.join("app.json"), &app_json).await?;
         files_written += 1;
 
-        // ── 2.2 写入 model-registry.json(独立文件,从 app.json 迁移) ──
-        if !model_registry.modules.is_empty() {
-            let mr_json = serde_json::to_string_pretty(&model_registry)?;
-            write_file(&stage_dir.join("model-registry.json"), &mr_json).await?;
-            files_written += 1;
-            info!(
-                "Generated model-registry.json: {} modules",
-                model_registry.modules.len()
-            );
-        }
+        // ── 2.2 模型档案改为 extensions/profiles.yaml(对齐 Gateway ProfilesWrapper 契约) ──
+        // 原独立 model-registry.json 已废弃(见 META_AI_SPEC §9.5 / APP_EXTENSION.md)。
+        // profiles.yaml 实际写入在步骤 3 之后(复用已创建的 extensions/ 目录)。
         let _ = module_versions; // 暂不写入(原 app.json.moduleVersions 已移除)
         if let Some(cb) = on_progress {
             let rel_path = format!("{}/Apps/{}/app.json", namespace, app_name);
@@ -833,6 +827,28 @@ where
         let ext_count =
             write_extensions_to_staging(plan, app_name, &stage_dir, ontology, on_progress).await?;
         files_written += ext_count;
+
+        // ── 3.5 写入 extensions/profiles.yaml(领域模型档案) ────────────────
+        // 对齐 Gateway `runtime-engine::extension::load_from_dir` 的 `ProfilesWrapper` 契约：
+        //   profiles:
+        //     default:
+        //       modules:
+        //         <module_code>: { enabled_entities: [...], disabled_entities: [...] }
+        // 仅当存在启用实体时写入，避免产生空档案。
+        if !model_registry.modules.is_empty() {
+            let mut profiles = std::collections::HashMap::new();
+            profiles.insert("default".to_string(), model_registry);
+            let wrapper = ProfilesWrapper { profiles };
+            let yaml = yaml_serde::to_string(&wrapper)?;
+            write_file(&stage_dir.join("extensions").join("profiles.yaml"), &yaml).await?;
+            files_written += 1;
+            let module_count = wrapper
+                .profiles
+                .get("default")
+                .map(|p| p.modules.len())
+                .unwrap_or(0);
+            info!("Generated extensions/profiles.yaml: {} modules", module_count);
+        }
 
         // ── 4. request-no-impl/*.md ───────────────────────────────────────
         let gap_count = write_gap_docs_to_staging(plan, &stage_dir, ontology).await?;
@@ -925,7 +941,7 @@ where
 ///
 /// schema 真相源: `Pre-Proc/Alioth/_schema/app.schema.json`
 /// - required: id, code, namespace, name, version, status
-/// - config additionalProperties: false(禁止 modelRegistry/moduleVersions,已迁移到 model-registry.json)
+/// - config additionalProperties: false(禁止 modelRegistry/moduleVersions,已迁移到 extensions/profiles.yaml)
 /// - deploymentMode enum: [null, "standalone", "embedded"](严禁 "single_process")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -981,7 +997,7 @@ struct AppConfigJson {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blocks: Option<Vec<String>>,
     // ❌ modelRegistry/moduleVersions 已移除(schema additionalProperties: false)
-    // model_registry 迁移到独立文件 Pre-Proc/{ns}/Apps/{code}/model-registry.json
+    // model_registry 现写入 extensions/profiles.yaml(对齐 Gateway ProfilesWrapper 契约)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1208,67 +1224,9 @@ pub async fn write_service_backend(
     service_id: &str,
     mapped: &[crate::state::MappedEntity],
 ) -> Result<usize, ComposerError> {
-    if mapped.is_empty() {
-        return Ok(0);
-    }
-    let dir = resolve_project_root()
-        .join("Pre-Proc")
-        .join(namespace)
-        .join("Sources")
-        .join("Services")
-        .join(service_id)
-        .join("backend");
-    let src_dir = dir.join("src").join("handlers");
-    tokio::fs::create_dir_all(&src_dir).await?;
-    let mut written = 0;
-
-    let cn = format!(
-        "{}_service_{}",
-        service_id.replace('-', "_"),
-        namespace.replace('-', "_")
-    );
-    let name_line = format!("name = \"{cn}\"");
-    let cargo = vec![
-        "[package]",
-        &name_line,
-        "version.workspace = true",
-        "edition.workspace = true",
-        "",
-        "[dependencies]",
-        "actix-web = { workspace = true }",
-        "serde = { workspace = true }",
-        "serde_json = { workspace = true }",
-        "sqlx = { workspace = true }",
-        "chrono = { workspace = true }",
-        "rust_decimal = { workspace = true }",
-        "common = { path = \"../../../../../Framework/backend/common\" }",
-        "crud = { path = \"../../../../../Framework/backend/crud\" }",
-        "",
-        "[features]",
-        "default = []",
-    ];
-    tokio::fs::write(dir.join("Cargo.toml"), cargo.join("\n")).await?;
-    written += 1;
-    tokio::fs::write(
-        src_dir.parent().unwrap().join("lib.rs"),
-        b"pub mod handlers;\npub mod models;\n",
-    )
-    .await?;
-    written += 1;
-
-    let mut m = String::from("//! auto-generated\n\nuse serde::{Deserialize, Serialize};\nuse crud::{AliothDbEntity, Identifiable};\n\n");
-    for e in mapped {
-        push_model(&mut m, &e.domain_id, &e.table);
-    }
-    tokio::fs::write(src_dir.parent().unwrap().join("models.rs"), m).await?;
-    written += 1;
-    tokio::fs::write(
-        src_dir.join("mod.rs"),
-        b"pub fn config(_: &mut actix_web::web::ServiceConfig) {}\n",
-    )
-    .await?;
-    written += 1;
-    Ok(written)
+    crate::service_gen::generate_service_backend(namespace, service_id, mapped)
+        .await
+        .map_err(|e| ComposerError::Validation(e))
 }
 
 fn push_model(out: &mut String, name: &str, table: &str) {

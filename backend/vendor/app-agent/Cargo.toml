@@ -13,6 +13,7 @@ path = "src/lib.rs"
 meta-common = { path = "../meta-common" }
 alioth-gen = { path = "../alioth-gen" }
 ontology-mapping = { path = "../ontology-mapping" }
+ontology-gen-bridge = { path = "../ontology-gen-bridge" }
 runtime-engine = { path = "../runtime-engine" }
 actix-web = { workspace = true }
 sqlx = { workspace = true }

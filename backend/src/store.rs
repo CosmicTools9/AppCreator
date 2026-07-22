@@ -16,34 +16,14 @@ fn next_id() -> i64 {
 
 pub struct AppStore {
     pub projects: RwLock<HashMap<i64, Project>>,
-    pub templates: RwLock<HashMap<i64, Template>>,
     pub builds: RwLock<HashMap<i64, Build>>,
     pub deployments: RwLock<HashMap<i64, Deployment>>,
 }
 
 impl AppStore {
     pub fn new() -> Self {
-        let mut templates = HashMap::new();
-        templates.insert(1, Template {
-            id: 1, name: "管理后台".into(), description: "用户管理、权限配置、操作日志".into(),
-            category: "management".into(),
-        });
-        templates.insert(2, Template {
-            id: 2, name: "审批流程".into(), description: "报销、请假、合同审核".into(),
-            category: "approval".into(),
-        });
-        templates.insert(3, Template {
-            id: 3, name: "ERP 模块".into(), description: "采购、库存、订单".into(),
-            category: "erp".into(),
-        });
-        templates.insert(4, Template {
-            id: 4, name: "数据看板".into(), description: "销售报表、运营指标".into(),
-            category: "dashboard".into(),
-        });
-
         Self {
             projects: RwLock::new(HashMap::new()),
-            templates: RwLock::new(templates),
             builds: RwLock::new(HashMap::new()),
             deployments: RwLock::new(HashMap::new()),
         }
@@ -88,18 +68,6 @@ impl AppStore {
 
     pub async fn delete_project(&self, id: i64) -> bool {
         self.projects.write().await.remove(&id).is_some()
-    }
-
-    // ── Templates ───────────────────────────────────
-
-    pub async fn list_templates(&self) -> Vec<Template> {
-        let mut list: Vec<Template> = self.templates.read().await.values().cloned().collect();
-        list.sort_by(|a, b| a.id.cmp(&b.id));
-        list
-    }
-
-    pub async fn get_template(&self, id: i64) -> Option<Template> {
-        self.templates.read().await.get(&id).cloned()
     }
 
     // ── Builds ──────────────────────────────────────

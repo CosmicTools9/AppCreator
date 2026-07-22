@@ -38,20 +38,6 @@ impl MetaField {
     }
 }
 
-/// Load all collections as template suggestions.
-pub async fn load_templates(pool: &PgPool) -> Result<Vec<MetaCollection>, sqlx::Error> {
-    let rows = sqlx::query_as::<_, MetaCollection>(
-        r#"
-        SELECT table_name, name, type::text as "type", biz_description
-        FROM isahl_meta.meta_collections
-        WHERE type IS NOT NULL
-        ORDER BY table_name
-        "#
-    )
-    .fetch_all(pool)
-    .await?;
-    Ok(rows)
-}
 
 /// Load fields for a specific collection.
 pub async fn load_fields(pool: &PgPool, collection: &str) -> Result<Vec<MetaField>, sqlx::Error> {

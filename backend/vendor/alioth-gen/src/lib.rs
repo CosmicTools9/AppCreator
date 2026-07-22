@@ -124,7 +124,6 @@ pub use cli::{
     RollbackArgs, ValidateArgs,
 };
 
-
 // 重新导出文档生成器
 pub use docgen::{DiagramType, DocGenerator, MarkdownGenerator, MermaidDiagramGenerator};
 

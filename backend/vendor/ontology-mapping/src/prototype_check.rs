@@ -232,10 +232,7 @@ fn check_render_try_catch(content: &str) -> Vec<String> {
 fn extract_style_blocks(content: &str) -> Vec<String> {
     let mut blocks = Vec::new();
     let mut pos = 0;
-    loop {
-        let Some(oi) = content[pos..].find("<style").map(|i| pos + i) else {
-            break;
-        };
+    while let Some(oi) = content[pos..].find("<style").map(|i| pos + i) {
         let Some(gt) = content[oi..].find('>').map(|i| oi + i) else {
             break;
         };
@@ -283,6 +280,7 @@ fn check_css_syntax(html_path: &Path, content: &str) -> Vec<String> {
     let blocks = extract_style_blocks(content);
     let mut all_var_refs = std::collections::HashSet::new();
 
+    let var_re = regex::Regex::new(r"var\(--([\w-]+)").unwrap();
     for (idx, block) in blocks.iter().enumerate() {
         if block.contains("\\:root") {
             issues.push(format!(
@@ -321,7 +319,7 @@ fn check_css_syntax(html_path: &Path, content: &str) -> Vec<String> {
             ));
         }
         // var(--X) 引用
-        let var_re = regex::Regex::new(r"var\(--([\w-]+)").unwrap();
+
         for cap in var_re.captures_iter(block) {
             all_var_refs.insert(format!("--{}", &cap[1]));
         }
@@ -462,7 +460,7 @@ fn check_vendor_paths(html_path: &Path) -> Vec<String> {
         None,
         15,
     );
-    if !(out.success && !out.stdout.trim().is_empty()) {
+    if !out.success || out.stdout.trim().is_empty() {
         return issues;
     }
     let Ok(refs) = serde_json::from_str::<Vec<serde_json::Value>>(&out.stdout) else {

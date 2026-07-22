@@ -16,7 +16,6 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
   };
   if (options.token) {
     headers["Authorization"] = `Bearer ${options.token}`;
@@ -24,7 +23,7 @@ async function request<T>(
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.error ?? body.message ?? res.statusText);
+    throw new ApiError(res.status, (body as { error?: string }).error || res.statusText);
   }
   return res.json();
 }
@@ -32,7 +31,6 @@ async function request<T>(
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
-    this.name = "ApiError";
   }
 }
 
@@ -44,6 +42,8 @@ export interface Project {
   status: string;
   created_at: string;
 }
+
+// ── Chat ──────────────────────────────────────────────
 
 export interface ChatSession {
   id: number;
@@ -72,6 +72,11 @@ export interface StepResponse {
   message: string;
 }
 
+export interface CreateAppResponse {
+  session: ChatSession;
+  app_name: string;
+}
+
 export const api = {
   listProjects: (opts: ApiOptions) =>
     request<{ projects: Project[]; total: number }>("/projects", {
@@ -88,6 +93,16 @@ export const api = {
     opts: ApiOptions
   ) =>
     request<ChatSession>("/sessions", {
+      method: "POST",
+      body: JSON.stringify(body),
+      ...opts,
+    }),
+
+  createApp: (
+    body: { name: string; description: string; namespace: string },
+    opts: ApiOptions
+  ) =>
+    request<CreateAppResponse>("/apps", {
       method: "POST",
       body: JSON.stringify(body),
       ...opts,

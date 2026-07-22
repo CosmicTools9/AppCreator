@@ -90,6 +90,7 @@ pub fn meta_module_from_generator_model(
                 equivalent_classes: ge.equivalent_classes.clone(),
                 disjoint_classes: ge.disjoint_classes.clone(),
                 is_abstract: ge.is_abstract,
+                table_name: None,
                 state_machine,
                 transitions: ge
                     .transitions

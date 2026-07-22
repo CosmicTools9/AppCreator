@@ -199,6 +199,10 @@ pub struct MetaEntity {
     pub relations: Vec<MetaRelation>,
     pub annotations: Vec<MetaAnnotation>,
 
+    /// Physical table name with schema. Set by ontology-gen-bridge adapter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_name: Option<String>,
+
     // OWL Class Constraints - Phase 21
     /// 父类列表 - @extends(Parent1, Parent2)
     #[serde(default)]
@@ -520,6 +524,7 @@ mod tests {
             disjoint_classes: Vec::new(),
             is_abstract: false,
             state_machine: MetaStateMachine::default(),
+            table_name: None,
             transitions: Vec::new(),
             lifecycle_hooks: Vec::new(),
             business_rules: Vec::new(),

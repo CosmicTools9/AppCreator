@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "tool_version": "0.1.0",
+    "alioth_model": "10.0.0"
+  },
+  "entities": [
+    {
+      "name": "MeasurementUnit",
+      "mapping": {
+        "table": "isahl.zc_id_unit",
+        "inherits": "zc_id_object",
+        "source": "ontology-mapping",
+        "tier": "safe",
+        "confidence": 1.0
+      },
+      "coordinates": {
+        "scene": { "value": "JC", "tier": "safe", "confidence": 0.9, "source": "test" },
+        "factor": { "value": "FGA", "tier": "safe", "confidence": 0.9, "source": "test" },
+        "function": { "value": "↑_DA", "tier": "safe", "confidence": 0.9, "source": "test" }
+      },
+      "fields": [
+        { "json_path": "name", "column": "notice", "scalar_table": null, "ref_table": null, "tier": "safe", "confidence": 1.0, "source": "test", "alternatives": [] },
+        { "json_path": "symbol", "column": "code", "scalar_table": null, "ref_table": null, "tier": "safe", "confidence": 1.0, "source": "test", "alternatives": [] },
+        { "json_path": "sort_order", "column": "sort", "scalar_table": null, "ref_table": null, "tier": "safe", "confidence": 1.0, "source": "test", "alternatives": [] },
+        { "json_path": "unit_category", "column": "ck_category", "scalar_table": null, "ref_table": null, "tier": "safe", "confidence": 0.9, "source": "test", "alternatives": [] }
+      ],
+      "relationships": [
+        { "target": "UnitSystem", "type": "belongsTo", "via": "fk_system", "tier": "safe", "confidence": 0.9, "source": "test" }
+      ]
+    }
+  ],
+  "summary": {
+    "safe": 1,
+    "suggest": 0,
+    "unclear": 0
+  }
+}

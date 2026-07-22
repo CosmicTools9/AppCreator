@@ -28,7 +28,9 @@ pub async fn cleanup_test_db(_pool: &PgPool) {
 
 /// 开始测试事务。事务结束时自动回滚，不影响其他测试。
 pub async fn begin_test_tx(pool: &PgPool) -> sqlx::Transaction<'static, sqlx::Postgres> {
-    pool.begin().await.expect("Failed to begin test transaction")
+    pool.begin()
+        .await
+        .expect("Failed to begin test transaction")
 }
 
 /// 测试 schema 守门：断言当前连接是测试库。

@@ -183,7 +183,10 @@ impl FromStr for LlmProvider {
             "deepseek" => Ok(Self::DeepSeek),
             "kimi" => Ok(Self::Kimi),
             "minimax" => Ok(Self::MiniMax),
-            _ => Err(format!("Unknown LLM provider '{}'. Supported: deepseek, kimi, minimax", s)),
+            _ => Err(format!(
+                "Unknown LLM provider '{}'. Supported: deepseek, kimi, minimax",
+                s
+            )),
         }
     }
 }

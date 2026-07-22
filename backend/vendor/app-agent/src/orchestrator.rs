@@ -229,8 +229,6 @@ impl AppAgent {
             self.render_state_message(ctx)
         } else if matches!(&next_state, AgentState::Presenting { .. }) {
             self.render_presentation(ctx)
-        } else if matches!(&next_state, AgentState::Presenting { .. }) {
-            self.render_presentation(ctx)
         } else if matches!(&next_state, AgentState::Published { .. }) {
             self.render_published(ctx)
         } else if matches!(&next_state, AgentState::AwaitingUserInput { .. }) {
@@ -1319,7 +1317,7 @@ User intent: {intent}
                 // 补全 step_details 中的 LLM prompt/response
                 // ── 门禁执行（硬阻断）──
                 // Step 完成后必须按序通过所有 gates；任一失败则 attempt++ 重试，超过 3 次后进入 Failed
-                let gates_result = Self::execute_step_gates(skill_name, step, &context).await;
+                let gates_result = Self::execute_step_gates(skill_name, step, context).await;
                 match gates_result {
                     Ok(_) => {
                         common::telemetry::info!(
@@ -3513,10 +3511,7 @@ User intent: {intent}
 pub fn state_name(state: &AgentState) -> &'static str {
     match state {
         AgentState::Initializing => "初始化",
-        AgentState::Planning {
-            needs_clarification: Some(_),
-            ..
-        } => "澄清问题",
+        AgentState::Planning { needs_clarification: Some(_), .. } => "澄清问题",
         AgentState::Planning { .. } => "分析需求",
         AgentState::Extending => "生成后端配置",
         AgentState::Generating => "生成配置(已合并)",
@@ -3542,29 +3537,26 @@ pub fn state_name(state: &AgentState) -> &'static str {
 pub fn progress_percent(state: &AgentState) -> u8 {
     match state {
         AgentState::Initializing => 5,
-        AgentState::Planning {
-            needs_clarification: Some(_),
-            ..
-        } => 30,
-        AgentState::Planning { .. } => 20,
-        AgentState::Extending => 50,
-        AgentState::Generating => 60,
-        AgentState::GeneratingFrontend { .. } => 45,
-        AgentState::Verifying { .. } => 90,
-        AgentState::Publishing { .. } => 95,
-        AgentState::Composing => 80,
-        AgentState::Published { .. } => 100,
+        AgentState::Planning { needs_clarification: Some(_), .. } => 10,
+        AgentState::Planning { .. } => 15,
+        AgentState::Extending => 25,
+        AgentState::Generating => 30,
+        AgentState::GeneratingFrontend { .. } => 35,
+        AgentState::Composing => 40,
+        AgentState::Verifying { .. } => 65,
+        AgentState::Publishing { .. } => 80,
         AgentState::SemanticAnalysis => 5,
-        AgentState::FunctionDecomposition => 15,
-        AgentState::OntologyAnalysis { .. } => 30,
-        AgentState::ModuleCreation => 50,
-        AgentState::BlockCreation => 65,
-        AgentState::OntologyTransfer => 75,
-        AgentState::ServiceAPI => 85,
-        AgentState::Presenting { .. } => 100,
-        AgentState::ExecutingSkill { .. } => 40,
-        AgentState::AwaitingUserInput { .. } => 95,
-        AgentState::Failed { .. } => 0,
+        AgentState::FunctionDecomposition => 10,
+        AgentState::OntologyAnalysis { .. } => 20,
+        AgentState::ModuleCreation => 30,
+        AgentState::BlockCreation => 40,
+        AgentState::OntologyTransfer => 50,
+        AgentState::ServiceAPI => 60,
+        AgentState::ExecutingSkill { .. } => 70,
+        AgentState::Published { .. } => 100,
+        AgentState::Presenting { .. } => 95,
+        AgentState::AwaitingUserInput { .. } => 85,
+        AgentState::Failed { .. } => 100,
     }
 }
 

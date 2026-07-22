@@ -10,8 +10,12 @@ pub async fn require_resource_access(
 ) -> Result<(), AliothError> {
     // Skip all NGAC checks if the isahl_auth schema doesn't exist
     if !sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT FROM information_schema.schemata WHERE schema_name='isahl_auth')"
-    ).fetch_one(pool).await.unwrap_or(false) {
+        "SELECT EXISTS(SELECT FROM information_schema.schemata WHERE schema_name='isahl_auth')",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false)
+    {
         return Ok(());
     }
     // From here on, isahl_auth schema is guaranteed to exist
@@ -36,7 +40,8 @@ pub async fn require_resource_access(
         FROM isahl_auth.ngac_ownership_policy op, isahl.zc_id_lifecycle r
         WHERE op.resource_type = $2 AND r.id = $3
           AND $1 = ANY(r.ak_access_user) AND op.enabled = TRUE
-    "#.to_string();
+    "#
+    .to_string();
 
     let sql = format!(
         "WITH RECURSIVE user_attrs AS (
@@ -72,15 +77,21 @@ pub async fn require_resource_access(
     );
 
     let permitted: bool = sqlx::query_scalar(AssertSqlSafe(sql.as_str()))
-        .bind(user_id).bind(resource_type).bind(resource_id).bind(action)
-        .fetch_one(pool).await
+        .bind(user_id)
+        .bind(resource_type)
+        .bind(resource_id)
+        .bind(action)
+        .fetch_one(pool)
+        .await
         .map_err(|e| AliothError::Internal(format!("Permission check: {}", e)))?;
 
     if !permitted {
         let bootstrap: (bool,) = sqlx::query_as(
             "SELECT COUNT(*)=0 FROM isahl_auth.ngac_association WHERE deleted_at IS NULL",
-        ).fetch_one(pool).await
-         .map_err(|e| AliothError::Internal(format!("Bootstrap: {}", e)))?;
+        )
+        .fetch_one(pool)
+        .await
+        .map_err(|e| AliothError::Internal(format!("Bootstrap: {}", e)))?;
 
         if !bootstrap.0 {
             return Err(AliothError::Forbidden(format!(

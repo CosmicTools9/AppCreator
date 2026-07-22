@@ -70,46 +70,6 @@ pub async fn delete_project(
     }
 }
 
-// ── P1: Templates ────────────────────────────────────
-
-pub async fn list_templates(
-    req: HttpRequest,
-    store: web::Data<AppStore>,
-    pool: web::Data<sqlx::PgPool>,
-) -> HttpResponse {
-    let _user = match require_auth(&req) { Ok(u) => u, Err(r) => return r };
-
-    match crate::meta_reader::load_templates(pool.get_ref()).await {
-        Ok(collections) => {
-            let templates: Vec<serde_json::Value> = collections.iter().map(|c| {
-                serde_json::json!({
-                    "id": c.table_name,
-                    "name": c.name,
-                    "description": c.biz_description,
-                    "category": c.r#type,
-                    "source": "isahl_meta",
-                })
-            }).collect();
-            return HttpResponse::Ok().json(serde_json::json!({ "templates": templates }));
-        }
-        Err(e) => log::warn!("isahl_meta query failed, falling back to in-memory: {}", e),
-    }
-
-    // Fallback — in-memory store
-    HttpResponse::Ok().json(serde_json::json!({ "templates": store.list_templates().await }))
-}
-
-pub async fn get_template(
-    req: HttpRequest,
-    store: web::Data<AppStore>, path: web::Path<i64>,
-) -> HttpResponse {
-    let _user = match require_auth(&req) { Ok(u) => u, Err(r) => return r };
-    match store.get_template(path.into_inner()).await {
-        Some(t) => HttpResponse::Ok().json(serde_json::json!({ "template": t })),
-        None => HttpResponse::NotFound().json(serde_json::json!({"error":"not_found"})),
-    }
-}
-
 // ── P2: Builds + Deployments ─────────────────────────
 
 pub async fn trigger_build(

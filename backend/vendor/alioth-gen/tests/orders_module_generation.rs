@@ -126,6 +126,7 @@ fn create_orders_module() -> MetaModule {
         equivalent_classes: vec![],
         disjoint_classes: vec![],
         is_abstract: false,
+            table_name: None,
         state_machine: MetaStateMachine {
             enabled: true,
             states: vec![
@@ -269,6 +270,7 @@ fn create_orders_module() -> MetaModule {
         equivalent_classes: vec![],
         disjoint_classes: vec![],
         is_abstract: false,
+            table_name: None,
         state_machine: Default::default(),
         transitions: vec![],
         lifecycle_hooks: vec![],
@@ -438,7 +440,10 @@ fn test_orders_module_compilation() {
 
     assert!(api_output.files.len() >= 9, "后端应生成至少 9 个文件");
     assert!(
-        !api_output.files.iter().any(|f| f.path == std::path::PathBuf::from("src/auth/middleware.rs")),
+        !api_output
+            .files
+            .iter()
+            .any(|f| f.path == std::path::PathBuf::from("src/auth/middleware.rs")),
         "禁止生成 src/auth/middleware.rs：auth 中间件须由 Gateway 统一处理"
     );
 }

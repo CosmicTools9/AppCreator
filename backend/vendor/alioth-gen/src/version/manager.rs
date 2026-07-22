@@ -339,7 +339,6 @@ pub struct UpgradePath {
     pub reports: Vec<CompatibilityReport>,
 }
 
-
 /// 版本时间线条目
 #[derive(Debug, Clone)]
 pub struct VersionTimelineEntry {

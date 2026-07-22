@@ -1,17 +1,22 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSetAtom } from "jotai";
+import { useAuth } from "../stores/auth";
+import { currentSessionIdAtom } from "../stores/chat";
+import { api } from "../api/client";
 
-const STEP_CARDS = [
+const STEPS = [
   {
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-    title: "描述需求", desc: "用自然语言描述业务场景，AppCreator 理解意图并拆解为功能模块。",
+    title: "描述需求",
+    desc: "用自然语言描述业务场景，AppCreator 理解意图并拆解为功能模块。",
   },
   {
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>,
-    title: "生成原型", desc: "AI 实时生成高保真 HTML 原型，可预览、可下载、可持续对话迭代。",
+    title: "生成原型",
+    desc: "AI 实时生成高保真 HTML 原型，可预览、可下载、可持续对话迭代。",
   },
   {
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
-    title: "部署上线", desc: "原型确认后，生成完整源码包（Rust + React + PostgreSQL）开箱即用。",
+    title: "部署上线",
+    desc: "原型确认后，生成完整源码包（Rust + React + PostgreSQL）开箱即用。",
   },
 ];
 
@@ -59,106 +64,278 @@ function TemplateIcon({ i }: { i: number }) {
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const { token } = useAuth();
+  const setSessionId = useSetAtom(currentSessionIdAtom);
+  const [showDialog, setShowDialog] = useState(false);
+  const [appName, setAppName] = useState("");
+  const [appDesc, setAppDesc] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    if (!appName.trim() || !appDesc.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await api.createApp(
+        { name: appName.trim(), description: appDesc.trim(), namespace: "AppCreator" },
+        { token }
+      );
+      setSessionId(res.session.id);
+      navigate("/workspace");
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "创建失败");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleStartClick = () => setShowDialog(true);
+  const scrollTo = (id: string) => (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const scrollToDemo = () => {
+    document.getElementById("hero-demo")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   return (
-    <div className="welcome">
-      {/* Hero */}
-      <p className="section-label">AI 驱动的企业应用生成器</p>
-      <h2>对话创建企业应用<br /><span className="accent">从需求到部署</span></h2>
-      <p>用自然语言描述你的管理需求——AppCreator 即时生成生产级企业应用原型。<br />管理后台、审批流、ERP 模块、数据看板，对话即可完成。</p>
-      <div className="hero-actions">
-        <button className="btn btn-primary" onClick={() => navigate("/workspace")}>
-          免费开始<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-        <a href="#" className="btn btn-secondary" onClick={(e) => e.preventDefault()}>预览演示</a>
-      </div>
-
-      {/* Steps */}
-      <div className="cards" style={{ marginBottom: 80 }}>
-        {STEP_CARDS.map((card) => (
-          <div className="card" key={card.title} onClick={() => navigate("/workspace")}>
-            <div className="card-icon">{card.icon}</div>
-            <h3>{card.title}</h3>
-            <p>{card.desc}</p>
+    <>
+      {/* Top nav */}
+      <nav className="landing-nav">
+        <div className="container">
+          <a href="#" className="nav-brand" onClick={(e) => e.preventDefault()}>
+            <span className="nav-brand-icon">AC</span>
+            AppCreator
+          </a>
+          <ul className="nav-links">
+            <li><a href="#how" onClick={scrollTo("how")}>工作原理</a></li>
+            <li><a href="#caps" onClick={scrollTo("caps")}>能力</a></li>
+            <li><a href="#templates" onClick={scrollTo("templates")}>模板</a></li>
+          </ul>
+          <div className="nav-cta">
+            <button className="btn btn-primary" onClick={handleStartClick}>开始使用</button>
           </div>
-        ))}
-      </div>
+        </div>
+      </nav>
 
-      {/* Capabilities */}
-      <div className="section-label">—— 核心能力</div>
-      <h2 className="text-h1" style={{ marginBottom: 48 }}>从对话到生产，一站式覆盖</h2>
-      <div className="caps-grid" style={{ textAlign: "left", maxWidth: 960, margin: "0 auto 80px" }}>
-        {CAPABILITIES.map((cap) => (
-          <div className="cap-card" key={cap.title}>
-            <div className="card-icon"><CapIcon name={cap.icon} /></div>
-            <div style={{ flex: 1 }}>
-              <h3>{cap.title}</h3>
-              <p className="muted-text" style={{ fontSize: 13, lineHeight: 1.6 }}>{cap.desc}</p>
+      <div className="welcome">
+        {/* Hero */}
+        <div className="hero-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          AI 驱动的企业应用生成器
+        </div>
+        <h2 className="hero-title">对话创建企业应用<br /><span className="accent">从需求到部署</span></h2>
+        <p className="hero-sub">用自然语言描述你的管理需求——AppCreator 即时生成生产级企业应用原型。管理后台、审批流、ERP 模块、数据看板，对话即可完成。</p>
+        <div className="hero-actions">
+          <button className="btn btn-primary" onClick={handleStartClick}>
+            免费开始<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+          <button className="btn btn-secondary" onClick={scrollToDemo}>预览演示</button>
+        </div>
+
+        {/* Hero chat demo */}
+        <div className="hero-demo" id="hero-demo">
+          <div className="demo-chat">
+            <div className="demo-sidebar">
+              <div className="demo-sidebar-header">AppCreator</div>
+              <div className="demo-session active">客户管理后台</div>
+              <div className="demo-session">审批流程 v2</div>
+              <div className="demo-session">库存看板</div>
+            </div>
+            <div className="demo-main">
+              <div className="demo-msg-row user">
+                <div className="demo-avatar user">U</div>
+                <div className="demo-bubble">帮我创建一个客户管理后台，需要包含客户列表、详情页和新建表单</div>
+              </div>
+              <div className="demo-msg-row ai">
+                <div className="demo-avatar ai">AI</div>
+                <div className="demo-bubble">
+                  <strong>好的，我来为你生成客户管理后台原型。</strong><br /><br />
+                  该应用将包含以下功能模块：<br /><br />
+                  <strong>📋 客户列表</strong><br />
+                  · 搜索 / 筛选 / 分页表格<br />
+                  · 批量操作（删除、导出）<br />
+                  · 快速查看联系人<br /><br />
+                  <strong>📝 客户详情页</strong><br />
+                  · 基本信息展示（名称、行业、联系方式）<br />
+                  · 关联订单与合同列表<br />
+                  · 操作日志时间线<br /><br />
+                  <strong>➕ 新建客户表单</strong><br />
+                  · 字段：公司名称、行业、联系人、电话、邮箱、备注<br />
+                  · 保存后自动跳转详情页<br /><br />
+                  是否开始生成？
+                </div>
+              </div>
+              <div className="demo-msg-row user">
+                <div className="demo-avatar user">U</div>
+                <div className="demo-bubble">开始生成</div>
+              </div>
+              <div className="demo-msg-row ai">
+                <div className="demo-avatar ai">AI</div>
+                <div className="demo-bubble success">
+                  ✅ 原型已生成！<br />
+                  <a href="#" onClick={(e) => e.preventDefault()}>预览客户管理后台 →</a>
+                </div>
+              </div>
+              <div className="demo-input-bar">
+                <input className="demo-input" type="text" value="开始生成" readOnly disabled />
+                <button className="demo-send-btn" disabled>发送</button>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
 
-      {/* Templates */}
-      <div className="section-label">—— 适用场景</div>
-      <h2 className="text-h1" style={{ marginBottom: 48 }}>企业应用的每一个角落</h2>
-      <div className="templates-grid" style={{ maxWidth: 640, margin: "0 auto 80px" }}>
-        {TEMPLATES.map((t, i) => (
-          <div className="template-card" key={t.name}>
-            <div className="template-icon"><TemplateIcon i={i} /></div>
-            <h3>{t.name}</h3>
-            <p className="muted-text" style={{ fontSize: 12 }}>{t.desc}</p>
+        {/* How it works */}
+        <section className="how-section" id="how">
+          <div className="section-label">—— 工作原理</div>
+          <h2 className="text-h1">三步生成企业应用</h2>
+          <div className="how-grid">
+            {STEPS.map((step, i) => (
+              <div className="how-step" key={step.title}>
+                <div className="how-step-number">{String(i + 1).padStart(2, "0")}</div>
+                <h3>{step.title}</h3>
+                <p>{step.desc}</p>
+              </div>
+            ))}
           </div>
-        ))}
+        </section>
+
+        {/* Capabilities */}
+        <div className="section-label" id="caps">—— 核心能力</div>
+        <h2 className="text-h1" style={{ marginBottom: 48 }}>从对话到生产，一站式覆盖</h2>
+        <div className="caps-grid" style={{ textAlign: "left", maxWidth: 960, margin: "0 auto 80px" }}>
+          {CAPABILITIES.map((cap) => (
+            <div className="cap-card" key={cap.title}>
+              <div className="card-icon"><CapIcon name={cap.icon} /></div>
+              <div style={{ flex: 1 }}>
+                <h3>{cap.title}</h3>
+                <p className="muted-text" style={{ fontSize: 13, lineHeight: 1.6 }}>{cap.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Templates */}
+        <div className="section-label" id="templates">—— 适用场景</div>
+        <h2 className="text-h1" style={{ marginBottom: 48 }}>企业应用的每一个角落</h2>
+        <div className="templates-grid" style={{ maxWidth: 640, margin: "0 auto 80px" }}>
+          {TEMPLATES.map((t, i) => (
+            <div className="template-card" key={t.name}>
+              <div className="template-icon"><TemplateIcon i={i} /></div>
+              <h3>{t.name}</h3>
+              <p className="muted-text" style={{ fontSize: 12 }}>{t.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Pricing */}
+        <div className="section-label">—— 定价</div>
+        <h2 className="text-h1" style={{ marginBottom: 48 }}>选择适合你的方案</h2>
+        <div className="pricing-grid" style={{ maxWidth: 960 }}>
+          {/* 免费预览 */}
+          <div className="pricing-card">
+            <h3 className="pricing-tier">免费预览</h3>
+            <p className="pricing-price"><span className="pricing-amount">¥0</span></p>
+            <ul className="pricing-features">
+              <li>AI 对话创建应用原型</li>
+              <li>原型预览与下载</li>
+              <li>无限次迭代修改</li>
+              <li>社区支持</li>
+            </ul>
+            <button className="btn btn-secondary" onClick={() => navigate("/workspace")} style={{ width: "100%", justifyContent: "center" }}>免费开始</button>
+          </div>
+          {/* 专业订阅 */}
+          <div className="pricing-card featured">
+            <div className="pricing-badge">推荐</div>
+            <h3 className="pricing-tier">专业订阅</h3>
+            <p className="pricing-price"><span className="pricing-amount">¥1,399</span><span className="pricing-period">/月</span></p>
+            <ul className="pricing-features">
+              <li>每月 60 个产品原型额度</li>
+              <li>每个原型无限次对话迭代</li>
+              <li>首次源码包下载 <strong>¥4,999</strong></li>
+              <li>重新生成不计费</li>
+              <li>再次下载仅 <strong>¥19.9/次</strong></li>
+              <li>优先技术支持</li>
+            </ul>
+            <button className="btn btn-primary" onClick={() => navigate("/workspace")} style={{ width: "100%", justifyContent: "center" }}>立即订阅</button>
+          </div>
+          {/* AliothStudio = 企业定制 */}
+          <div className="pricing-card">
+            <h3 className="pricing-tier">AliothStudio</h3>
+            <p className="pricing-price" style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 4 }}>企业定制方案</p>
+            <p className="pricing-price"><span className="pricing-amount">¥499,999</span></p>
+            <ul className="pricing-features">
+              <li>基于元数据的自定义扩展</li>
+              <li>从元数据自定义实体与字段</li>
+              <li>私域部署（Docker 单机或集群）</li>
+              <li>独立 SSO 认证与 NGAC 权限</li>
+              <li>代码包无限下载</li>
+              <li>优先技术支持</li>
+            </ul>
+            <button className="btn btn-secondary" onClick={() => {}} style={{ width: "100%", justifyContent: "center" }}>联系销售</button>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <section className="cta-section">
+          <h2 className="text-h1">用对话开启你的第一个应用</h2>
+          <p>免费预览和下载生成的原型。确认满意后获取可部署的完整源码包。</p>
+          <button className="btn btn-primary" onClick={handleStartClick}>
+            免费开始创建
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </section>
       </div>
 
-      {/* Pricing */}
-      <div className="section-label">—— 定价</div>
-      <h2 className="text-h1" style={{ marginBottom: 48 }}>选择适合你的方案</h2>
-      <div className="pricing-grid" style={{ maxWidth: 960 }}>
-        {/* 免费预览 */}
-        <div className="pricing-card">
-          <h3 className="pricing-tier">免费预览</h3>
-          <p className="pricing-price"><span className="pricing-amount">¥0</span></p>
-          <ul className="pricing-features">
-            <li>AI 对话创建应用原型</li>
-            <li>原型预览与下载</li>
-            <li>无限次迭代修改</li>
-            <li>社区支持</li>
-          </ul>
-          <button className="btn btn-secondary" onClick={() => navigate("/workspace")} style={{ width: "100%", justifyContent: "center" }}>免费开始</button>
+      {/* Footer */}
+      <footer className="landing-footer">
+        <div className="container">
+          <a href="#" className="nav-brand" onClick={(e) => e.preventDefault()}>
+            <span className="nav-brand-icon">AC</span>
+            AppCreator
+          </a>
+          <p>Enterprise apps from conversation</p>
         </div>
-        {/* 专业订阅 */}
-        <div className="pricing-card featured">
-          <div className="pricing-badge">推荐</div>
-          <h3 className="pricing-tier">专业订阅</h3>
-          <p className="pricing-price"><span className="pricing-amount">¥1,399</span><span className="pricing-period">/月</span></p>
-          <ul className="pricing-features">
-            <li>每月 60 个产品原型额度</li>
-            <li>每个原型无限次对话迭代</li>
-            <li>首次源码包下载 <strong>¥4,999</strong></li>
-            <li>重新生成不计费</li>
-            <li>再次下载仅 <strong>¥19.9/次</strong></li>
-            <li>优先技术支持</li>
-          </ul>
-          <button className="btn btn-primary" onClick={() => navigate("/workspace")} style={{ width: "100%", justifyContent: "center" }}>立即订阅</button>
+      </footer>
+
+      {/* Create App Dialog */}
+      {showDialog && (
+        <div className="dialog-overlay" onClick={() => setShowDialog(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>创建新应用</h3>
+            <p className="muted-text">描述你的业务需求，AppCreator 将即时生成企业应用原型。</p>
+            <label>
+              应用名称
+              <input
+                type="text"
+                placeholder="例如：采购管理系统"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <label>
+              需求描述
+              <textarea
+                placeholder="例如：一个采购管理系统，包含供应商管理、采购订单、入库验收、退货处理等功能"
+                value={appDesc}
+                onChange={(e) => setAppDesc(e.target.value)}
+                rows={4}
+              />
+            </label>
+            {createError && <p className="error-text">{createError}</p>}
+            <div className="dialog-actions">
+              <button className="btn btn-secondary" onClick={() => setShowDialog(false)} disabled={creating}>
+                取消
+              </button>
+              <button className="btn btn-primary" onClick={handleCreate} disabled={creating || !appName.trim() || !appDesc.trim()}>
+                {creating ? "创建中..." : "开始创建"}
+              </button>
+            </div>
+          </div>
         </div>
-        {/* AliothStudio = 企业定制 */}
-        <div className="pricing-card">
-          <h3 className="pricing-tier">AliothStudio</h3>
-          <p className="pricing-price" style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 4 }}>企业定制方案</p>
-          <p className="pricing-price"><span className="pricing-amount">¥499,999</span></p>
-          <ul className="pricing-features">
-            <li>基于元数据的自定义扩展</li>
-            <li>从 `isahl_meta` 自定义实体与字段</li>
-            <li>私域部署（Docker 单机或集群）</li>
-            <li>独立 SSO 认证与 NGAC 权限</li>
-            <li>代码包无限下载</li>
-            <li>优先技术支持</li>
-          </ul>
-          <button className="btn btn-secondary" onClick={() => {}} style={{ width: "100%", justifyContent: "center" }}>联系销售</button>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

@@ -22,7 +22,9 @@ async fn connect() -> PgPool {
     {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgres://localhost:5432/aliothstudio_test".to_string());
-        sqlx::PgPool::connect(&database_url).await.expect("connect_test_db failed")
+        sqlx::PgPool::connect(&database_url)
+            .await
+            .expect("connect_test_db failed")
     }
 }
 

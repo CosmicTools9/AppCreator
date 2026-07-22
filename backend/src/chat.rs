@@ -597,6 +597,7 @@ pub async fn progress_handler(
 #[derive(Debug, Deserialize)]
 pub struct CreateAppRequest {
     pub name: String,
+    pub description: String,
     pub namespace: String,
 }
 
@@ -608,23 +609,28 @@ pub async fn create_app_handler(
     let user = match require_auth(&req) { Ok(u) => u, Err(r) => return r };
 
     let name = body.name.trim();
+    let description = body.description.trim();
     let namespace = body.namespace.trim();
-    if name.is_empty() || namespace.is_empty() {
+    if name.is_empty() || description.is_empty() || namespace.is_empty() {
         return HttpResponse::BadRequest().json(error_response(
             "INVALID_INPUT",
-            "Both name and namespace are required",
+            "name, description, and namespace are required",
         ));
     }
 
     match create_session(pool.get_ref(), name, None, namespace).await {
         Ok(row) => {
+            // Initialize ConversationContext with description driving semantic analysis
             let mut ctx = ConversationContext::new(
                 row.id,
                 user.username.clone(),
                 namespace.to_string(),
             );
-            ctx.user_description = name.to_string();
+            ctx.user_description = description.to_string();
             let _ = save_agent_context(pool.get_ref(), row.id, &ctx).await;
+
+            // Seed the conversation with the initial user description
+            let _ = add_message(pool.get_ref(), row.id, "user", description).await;
             let _ = update_session_status(pool.get_ref(), row.id, "app_creating").await;
 
             HttpResponse::Created().json(ApiResponse::success(serde_json::json!({

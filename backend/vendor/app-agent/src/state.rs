@@ -1,8 +1,8 @@
 //! Agent 状态机与对话上下文
 
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// App Agent 业务编排状态机（7 状态：Initializing→Planning→Extending→Composing→Verifying→Presenting）
 ///
@@ -1007,10 +1007,7 @@ mod tests {
         };
         match &state {
             AgentState::ExecutingSkill { return_state, .. } => {
-                assert!(matches!(
-                    **return_state,
-                    AgentState::Planning { .. }
-                ));
+                assert!(matches!(**return_state, AgentState::Planning { .. }));
             }
             _ => panic!("expected ExecutingSkill"),
         }
@@ -1047,7 +1044,12 @@ mod tests {
             return_state: Box::new(AgentState::BlockCreation),
         };
         match &next {
-            AgentState::ExecutingSkill { skill_name, return_state, context, .. } => {
+            AgentState::ExecutingSkill {
+                skill_name,
+                return_state,
+                context,
+                ..
+            } => {
                 assert_eq!(skill_name, "alioth-module");
                 assert_eq!(context.get("ns").unwrap(), "Test");
                 assert!(matches!(**return_state, AgentState::BlockCreation));
@@ -1076,7 +1078,12 @@ mod tests {
             }),
         };
         match &next {
-            AgentState::ExecutingSkill { skill_name, return_state, context, .. } => {
+            AgentState::ExecutingSkill {
+                skill_name,
+                return_state,
+                context,
+                ..
+            } => {
                 assert_eq!(skill_name, "alioth-service");
                 assert_eq!(context.get("ns").unwrap(), "WZ");
                 assert!(matches!(**return_state, AgentState::Publishing { .. }));

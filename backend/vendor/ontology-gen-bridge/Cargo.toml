@@ -1,0 +1,20 @@
+[package]
+name = "ontology-gen-bridge"
+version = "0.1.0"
+edition = "2021"
+authors = ["william.d.zk <william@isahl.com>"]
+license = "MIT"
+description = "Bridge adapter: MappingOutput (ontology-mapping) → MetaModule (alioth-gen)"
+
+[[bin]]
+name = "ontology-gen-bridge"
+path = "src/main.rs"
+
+[dependencies]
+ontology-mapping = { path = "../ontology-mapping" }
+alioth-gen = { path = "../alioth-gen" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]

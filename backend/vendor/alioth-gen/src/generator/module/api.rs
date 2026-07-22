@@ -105,6 +105,12 @@ impl ModuleApiGenerator {
             files.push(self.generate_entity_model_rs(entity, module_name));
         }
 
+        // 生成 handlers/mod.rs 和 handlers/{entity}.rs
+        files.push(self.generate_handlers_mod_rs(&module.entities));
+        for entity in &module.entities {
+            files.push(self.generate_entity_handlers_rs(entity, &self.options));
+        }
+
         let c_file_count = files.len();
 
         Ok(GeneratedOutput {
@@ -120,6 +126,7 @@ impl ModuleApiGenerator {
     /// 生成 Cargo.toml
     fn generate_cargo_toml(&self, module: &MetaModule) -> GeneratedFile {
         let module_name = &module.name;
+        let lib_name = module_name.replace('-', "_");
         let has_decimal = module.entities.iter().any(|e| {
             e.fields
                 .iter()
@@ -137,7 +144,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "{module_name}_backend"
+name = "{lib_name}_backend"
 path = "src/lib.rs"
 crate-type = ["lib"]
 
@@ -145,9 +152,10 @@ crate-type = ["lib"]
 actix-web = "4"
 actix-rt = "2"
 serde = {{ version = "1", features = ["derive"] }}
-serde_json = "1"
-sqlx = {{ version = "0.8", features = ["runtime-tokio", "postgres", "macros", "chrono", "rust_decimal"] }}
+sqlx = {{ version = "0.9", features = ["runtime-tokio", "postgres", "macros", "chrono", "rust_decimal"] }}
 tokio = {{ version = "1", features = ["full"] }}
+common = {{ path = "../../../Framework/backend/common" }}
+crud = {{ path = "../../../Framework/backend/crud" }}
 chrono = {{ version = "0.4", features = ["serde"] }}
 thiserror = "2"
 log = "0.4"
@@ -155,14 +163,13 @@ uuid = {{ version = "1", features = ["v4", "serde"] }}
 futures = "0.3"
 jsonwebtoken = "9"
 {rust_decimal_dep}
-alioth-common = {{ path = "../../../Framework/backend/common" }}
-alioth-crud = {{ path = "../../../Framework/backend/crud" }}
 
 [dev-dependencies]
 actix-rt = "2"
-sqlx = {{ version = "0.8", features = ["runtime-tokio", "postgres", "macros", "chrono"] }}
+sqlx = {{ version = "0.9", features = ["runtime-tokio", "postgres", "macros", "chrono"] }}
 "#,
             module_name = module_name,
+            lib_name = lib_name,
             rust_decimal_dep = rust_decimal_dep
         );
 
@@ -324,6 +331,7 @@ impl From<crud::CrudError> for ApiError {
             crud::CrudError::BadRequest(msg) => ApiError::BadRequest(msg),
             crud::CrudError::Unauthorized(msg) => ApiError::Unauthorized(msg),
             crud::CrudError::Internal(msg) => ApiError::Internal(msg),
+            _ => ApiError::Internal("unknown error".to_string()),
         }
     }
 }
@@ -396,6 +404,24 @@ pub use common::context::{extract_user_id, RequestContext, RequestContextExt};
     }
 
     /// 生成单个实体的模型文件
+
+    /// Build AliothDbEntity impl string when table_name is set.
+    fn generate_alioth_db_entity_impl(
+        &self,
+        entity: &MetaEntity,
+        select_clause: &str,
+    ) -> Option<String> {
+        let table = entity.table_name.as_ref()?;
+        let name = &entity.name;
+        Some(format!(
+            "\nimpl AliothDbEntity for {name} {{\n    fn table_name() -> &'static str {{ \"{table}\" }}\n    const SELECT_FIELDS: &'static str = \"{fields}\";\n    const ENTITY_NAME: &'static str = \"{name_snake}\";\n    const SOFT_DELETE: bool = true;\n}}\n",
+            name = name,
+            name_snake = to_snake_case(name),
+            table = table,
+            fields = select_clause,
+        ))
+    }
+
     fn generate_entity_model_rs(&self, entity: &MetaEntity, _module_name: &str) -> GeneratedFile {
         let entity_name = &entity.name;
         let entity_snake = to_snake_case(entity_name);
@@ -554,6 +580,17 @@ pub type Update{entity_name}Request = {entity_name}Input;
             }
         );
 
+        // Inject AliothDbEntity when table_name is set
+        let mut content = content;
+        if entity.table_name.is_some() {
+            let import_needle = "use sqlx::{FromRow};";
+            let import_replacement = "use sqlx::{FromRow};\nuse crud::AliothDbEntity;";
+            content = content.replace(import_needle, import_replacement);
+            if let Some(alioth) = self.generate_alioth_db_entity_impl(entity, &select_clause) {
+                content.push_str(&alioth);
+            }
+        }
+
         GeneratedFile {
             path: PathBuf::from(format!("src/models/{}.rs", entity_snake)),
             content,
@@ -616,14 +653,14 @@ pub fn config(cfg: &mut web::ServiceConfig) {{
                 r#"/// 列出所有 {entity_name} (分页)
 pub async fn list_{entity_snake}(
     pool: web::Data<sqlx::PgPool>,
-    query: web::Query<crud::PaginationQuery>,
+    query: web::Query<common::data::ListQuery>,
 ) -> Result<HttpResponse, ApiError> {{
     let offset = query.offset();
 
-    let items = sqlx::query_as::<_, {entity_name}>(AssertSqlSafe(format!(
+    let items = sqlx::query_as::<_, {entity_name}>(&format!(
         "SELECT {{}} FROM {plural_snake} ORDER BY id DESC LIMIT $1 OFFSET $2",
         {entity_name}::select_fields()
-    )))
+    ))
     .bind(query.page_size)
     .bind(offset)
     .fetch_all(pool.get_ref())
@@ -652,10 +689,10 @@ pub async fn list_{entity_snake}(
 pub async fn list_{entity_snake}(
     pool: web::Data<sqlx::PgPool>,
 ) -> Result<HttpResponse, ApiError> {{
-    let items = sqlx::query_as::<_, {entity_name}>(AssertSqlSafe(format!(
+    let items = sqlx::query_as::<_, {entity_name}>(sqlx::query_as::<_, {entity_name}>(format!format!(
         "SELECT {{}} FROM {plural_snake} ORDER BY id DESC",
         {entity_name}::select_fields()
-    )))
+    ))
     .fetch_all(pool.get_ref())
     .await
     .map_err(|e| ApiError::Database(e.to_string()))?;
@@ -814,7 +851,7 @@ pub async fn get_available_transitions_{entity_snake}(
 
 use actix_web::*;
 use serde::Deserialize;
-use sqlx::{{AssertSqlSafe, PgPool}};
+use sqlx::{{PgPool}};
 
 use crate::errors::ApiError;
 use crate::models::{entity_snake}::{{{entity_name}, {entity_name}Input}};
@@ -840,10 +877,10 @@ pub async fn get_{entity_snake}(
 ) -> Result<HttpResponse, ApiError> {{
     let id = path.into_inner();
 
-    let item = sqlx::query_as::<_, {entity_name}>(AssertSqlSafe(format!(
+    let item = sqlx::query_as::<_, {entity_name}>(sqlx::query_as::<_, {entity_name}>(format!format!(
         "SELECT {{}} FROM {plural_snake} WHERE id = $1",
         {entity_name}::select_fields()
-    )))
+    ))
     .bind(id)
     .fetch_optional(pool.get_ref())
     .await
@@ -1356,6 +1393,7 @@ mod tests {
             equivalent_classes: vec![],
             disjoint_classes: vec![],
             is_abstract: false,
+            table_name: None,
             state_machine: Default::default(),
             transitions: vec![],
             lifecycle_hooks: vec![],

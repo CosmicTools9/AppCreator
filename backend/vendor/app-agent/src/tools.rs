@@ -1061,7 +1061,7 @@ pub async fn create_service_scaffold(
         "layer": 0,
         "dtoDependencies": [],
         "dtoExposes": {
-            "refs": entity_names.iter().cloned().collect::<Vec<_>>(),
+            "refs": entity_names.to_vec(),
             "queries": ["list_refs", "get_refs"]
         },
         "backendCrate": format!("{}-service-{}", namespace.to_lowercase(), service_id),

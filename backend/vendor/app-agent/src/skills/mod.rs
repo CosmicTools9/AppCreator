@@ -79,7 +79,9 @@ pub struct StepGate {
     pub timeout_sec: u64,
 }
 
-const fn default_gate_timeout() -> u64 { 120 }
+const fn default_gate_timeout() -> u64 {
+    120
+}
 
 /// 步骤
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -441,7 +443,10 @@ tracks:
         let gates = &skill.tracks[0].steps[0].gates;
         assert_eq!(gates.len(), 2);
         assert_eq!(gates[0].program, "bun");
-        assert_eq!(gates[0].args, vec!["scripts/prototype-tool.js", "build", "path/to/module.tsx"]);
+        assert_eq!(
+            gates[0].args,
+            vec!["scripts/prototype-tool.js", "build", "path/to/module.tsx"]
+        );
         assert_eq!(gates[0].output_glob.as_deref(), Some("output/a-v*.html"));
         assert_eq!(gates[0].expected_exit_code, 0);
         assert_eq!(gates[0].timeout_sec, 60);
@@ -481,7 +486,10 @@ tracks:
         migrated.migrate_outputs_to_gates();
         let m = &migrated.tracks[0].steps[0];
         assert_eq!(m.gates.len(), 1);
-        assert_eq!(m.gates[0].output_glob.as_deref(), Some("path/to/output.txt"));
+        assert_eq!(
+            m.gates[0].output_glob.as_deref(),
+            Some("path/to/output.txt")
+        );
         assert!(m.gates[0].program.is_empty());
         assert!(m.outputs.is_empty());
     }
@@ -501,24 +509,53 @@ tracks:
         let count = rt.block_on(registry.load_all()).unwrap();
         assert!(count > 0, "应当至少加载 1 个 adapter");
         assert_eq!(count, 6, "应当加载全部 6 个 adapter");
-        assert!(registry.get("alioth-module").is_some(), "缺少 alioth-module");
+        assert!(
+            registry.get("alioth-module").is_some(),
+            "缺少 alioth-module"
+        );
         assert!(registry.get("alioth-block").is_some(), "缺少 alioth-block");
-        assert!(registry.get("alioth-ontology").is_some(), "缺少 alioth-ontology");
+        assert!(
+            registry.get("alioth-ontology").is_some(),
+            "缺少 alioth-ontology"
+        );
         assert!(registry.get("alioth-gui").is_some(), "缺少 alioth-gui");
-        assert!(registry.get("alioth-service").is_some(), "缺少 alioth-service");
+        assert!(
+            registry.get("alioth-service").is_some(),
+            "缺少 alioth-service"
+        );
         assert!(registry.get("spec-audit").is_some(), "缺少 spec-audit");
 
         // 验证每个 adapter 的 steps 都有 instruction 且 gates 可解析
-        for name in &["alioth-module", "alioth-block", "alioth-ontology", "alioth-gui", "alioth-service", "spec-audit"] {
+        for name in &[
+            "alioth-module",
+            "alioth-block",
+            "alioth-ontology",
+            "alioth-gui",
+            "alioth-service",
+            "spec-audit",
+        ] {
             let skill = registry.get(name).unwrap();
             assert!(!skill.tracks.is_empty(), "skill {} 无 tracks", name);
             for (ti, track) in skill.tracks.iter().enumerate() {
                 for (si, step) in track.steps.iter().enumerate() {
-                    assert!(!step.instruction.is_empty(), "{}.tracks[{}].steps[{}] 缺 instruction", name, ti, si);
+                    assert!(
+                        !step.instruction.is_empty(),
+                        "{}.tracks[{}].steps[{}] 缺 instruction",
+                        name,
+                        ti,
+                        si
+                    );
                     for (gi, gate) in step.gates.iter().enumerate() {
                         // 命令门禁必须有 program
                         if gate.output_glob.is_none() {
-                            assert!(!gate.program.is_empty(), "{}.tracks[{}].steps[{}].gates[{}] 缺 program（output_glob 也空）", name, ti, si, gi);
+                            assert!(
+                                !gate.program.is_empty(),
+                                "{}.tracks[{}].steps[{}].gates[{}] 缺 program（output_glob 也空）",
+                                name,
+                                ti,
+                                si,
+                                gi
+                            );
                         }
                     }
                 }
@@ -528,15 +565,17 @@ tracks:
 
     #[test]
     fn test_gate_default_timeout() {
-        let gate: StepGate = yaml_serde::from_str(r#"{
+        let gate: StepGate = yaml_serde::from_str(
+            r#"{
             program: "npx",
             args: ["tsc", "--noEmit"]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         assert_eq!(gate.timeout_sec, 120);
         assert_eq!(gate.expected_exit_code, 0);
         assert!(gate.output_glob.is_none());
         assert_eq!(gate.program, "npx");
         assert_eq!(gate.args, vec!["tsc", "--noEmit"]);
+    }
 }
-}
-

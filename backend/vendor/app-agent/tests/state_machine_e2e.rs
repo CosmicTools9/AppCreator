@@ -15,16 +15,16 @@ use app_agent::state::progress_event;
 use app_agent::state::{
     AgentState, ComposeScratch, ConversationContext, FlowPlan, ResumeConfig, UserAnswer,
 };
-use std::sync::Arc;
 use sqlx::PgPool;
+use std::sync::Arc;
 
 async fn connect_test_db() -> sqlx::PgPool {
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://localhost:5432/aliothstudio_test".to_string());
-    sqlx::PgPool::connect(&database_url).await.expect("connect_test_db failed")
+    sqlx::PgPool::connect(&database_url)
+        .await
+        .expect("connect_test_db failed")
 }
-
-
 
 /// Set up FEATURE_MANIFEST_PATH and connect to test database.
 async fn setup_e2e() -> PgPool {

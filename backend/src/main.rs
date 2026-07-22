@@ -62,9 +62,6 @@ async fn main() -> std::io::Result<()> {
                     .route("/projects/{id}", web::delete().to(handlers::delete_project))
                     // P1 — Chat sessions (AppAgent-driven)
                     .configure(chat::configure_routes)
-                    // P1 — Templates
-                    .route("/templates", web::get().to(handlers::list_templates))
-                    .route("/templates/{id}", web::get().to(handlers::get_template))
                     // P2 — Builds + Deployments
                     .route("/projects/{id}/build", web::post().to(handlers::trigger_build))
                     .route("/projects/{id}/builds", web::get().to(handlers::list_builds))

@@ -95,13 +95,18 @@ impl AppLogicExtension {
         }
     }
 
-    /// 检查是否有任何扩展定义（不含 model_profiles，因为 profiles 不走 ExtensionRegistry）
+    /// 检查是否有任何扩展定义。
+    ///
+    /// 注意：含 `model_profiles` 的扩展必须视为「非空」并注册到 `AppExtensionRegistry`，
+    /// 否则仅有 `profiles.yaml`（领域模型档案）的应用会被整体跳过（原 bug：Gateway
+    /// `main.rs` 在 `ext.is_empty()` 为真时放弃注册，导致模型档案永不生效）。
     pub fn is_empty(&self) -> bool {
         self.constraints.is_empty()
             && self.business_rules.is_empty()
             && self.state_machines.is_empty()
             && self.workflows.is_empty()
             && self.swrl_rules.is_empty()
+            && self.model_profiles.is_empty()
     }
 
     /// 检查是否有领域模型配置单

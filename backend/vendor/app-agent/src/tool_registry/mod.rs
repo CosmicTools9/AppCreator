@@ -245,8 +245,8 @@ impl Tool for SearchFileTool {
             .unwrap_or("*");
 
         // Convert simple glob (*, ?) to exact match using ends_with
-        let suffix = if file_part.starts_with('*') {
-            &file_part[1..]
+        let suffix = if let Some(stripped) = file_part.strip_prefix('*') {
+            stripped
         } else {
             file_part
         };
@@ -368,12 +368,7 @@ impl Tool for ExecuteSkillTool {
 // - stdout/stderr 各截断 8 KiB，超出追加 `[truncated]` 标记
 
 /// 默认允许的程序列表（`_runtime.yaml` 缺失或解析失败时使用）
-const DEFAULT_ALLOWED_PROGRAMS: &[&str] = &[
-    "target/debug/ontology-mapping",
-    "bun",
-    "npx",
-    "cargo",
-];
+const DEFAULT_ALLOWED_PROGRAMS: &[&str] = &["target/debug/ontology-mapping", "bun", "npx", "cargo"];
 
 /// stdout/stderr 截断阈值（字节）
 const OUTPUT_TRUNCATE_BYTES: usize = 8 * 1024;
@@ -400,7 +395,10 @@ fn load_allowed_programs() -> Vec<String> {
                     "RunCommandTool: {} has empty allowed_programs, using default",
                     path.display()
                 );
-                DEFAULT_ALLOWED_PROGRAMS.iter().map(|s| s.to_string()).collect()
+                DEFAULT_ALLOWED_PROGRAMS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect()
             }
             Err(e) => {
                 common::telemetry::warn!(
@@ -408,10 +406,16 @@ fn load_allowed_programs() -> Vec<String> {
                     path.display(),
                     e
                 );
-                DEFAULT_ALLOWED_PROGRAMS.iter().map(|s| s.to_string()).collect()
+                DEFAULT_ALLOWED_PROGRAMS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect()
             }
         },
-        Err(_) => DEFAULT_ALLOWED_PROGRAMS.iter().map(|s| s.to_string()).collect(),
+        Err(_) => DEFAULT_ALLOWED_PROGRAMS
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     }
 }
 
@@ -428,9 +432,9 @@ struct RuntimeConfig {
 /// - `program == entry`：精确匹配（bare-name 程序如 `bun`、`cargo`）
 /// - `program.starts_with(format!("{entry}/"))`：路径前缀匹配（`target/debug/...`）
 fn is_program_allowed(program: &str, allowlist: &[String]) -> bool {
-    allowlist.iter().any(|entry| {
-        program == entry || program.starts_with(&format!("{}/", entry))
-    })
+    allowlist
+        .iter()
+        .any(|entry| program == entry || program.starts_with(&format!("{}/", entry)))
 }
 
 /// 截断字节流，超出 8 KiB 时保留前 8 KiB + `[truncated]` 标记
@@ -564,10 +568,7 @@ impl Tool for RunCommandTool {
             ),
             Err(_elapsed) => ToolCallResult::err(
                 "run_command",
-                format!(
-                    "command '{}' exceeded timeout of {}s",
-                    program, timeout_sec
-                ),
+                format!("command '{}' exceeded timeout of {}s", program, timeout_sec),
             ),
         }
     }
@@ -601,7 +602,9 @@ mod tests {
     #[tokio::test]
     async fn executes_allowed_program() {
         let tool = RunCommandTool;
-        let r = tool.call(json!({"program": "cargo", "args": ["--version"]})).await;
+        let r = tool
+            .call(json!({"program": "cargo", "args": ["--version"]}))
+            .await;
         assert!(r.success, "cargo --version should succeed: {:?}", r.error);
         let data = r.data.expect("data should be present");
         let stdout = data.get("stdout").and_then(|v| v.as_str()).unwrap_or("");
@@ -610,14 +613,8 @@ mod tests {
             "stdout should mention 'cargo', got: {}",
             stdout
         );
-        assert_eq!(
-            data.get("exit_code").and_then(|v| v.as_i64()),
-            Some(0)
-        );
-        assert_eq!(
-            data.get("success").and_then(|v| v.as_bool()),
-            Some(true)
-        );
+        assert_eq!(data.get("exit_code").and_then(|v| v.as_i64()), Some(0));
+        assert_eq!(data.get("success").and_then(|v| v.as_bool()), Some(true));
         // cwd 应为项目根
         let cwd = data.get("cwd").and_then(|v| v.as_str()).unwrap_or("");
         assert!(
@@ -677,7 +674,11 @@ mod tests {
         let r1 = tool.call(json!({})).await;
         assert!(!r1.success);
         let err = r1.error.as_deref().unwrap_or("");
-        assert!(err.contains("missing required param 'program'"), "got: {}", err);
+        assert!(
+            err.contains("missing required param 'program'"),
+            "got: {}",
+            err
+        );
 
         // 空 program 字符串 → 同样报错
         let r2 = tool.call(json!({"program": "", "args": []})).await;
