@@ -1,10 +1,11 @@
-//! SSO JWT authentication middleware.
+//! Dual-mode authentication middleware.
 //!
-//! This middleware verifies ES256 (EC P-256) Bearer tokens issued by SSO.
-//! It is a local implementation because the current SSO token shape does not yet
-//! include the `namespace`/`aud`/`iss` claims required by `common::auth::verify_sso_token`.
-//! Once SSO adopts the namespace-aware contract, this should be replaced by the
-//! shared `common::middleware::NgacPepMiddleware`.
+//! Detects auth mode at startup via `auth_config::init_auth_config()`:
+//! - SSO_JWT_PUBLIC_KEY configured → SSO mode (ES256, issuer "app-creator"|"alioth-sso")
+//! - Missing → Standalone mode (ES256, issuer "app-creator-standalone")
+//!
+//! Both modes inject RequestContext + namespace (as String extension).
+//! Downstream handlers are auth-mode-agnostic.
 
 use actix_web::{
     body::EitherBody,
@@ -19,7 +20,9 @@ use std::rc::Rc;
 
 use common::context::{RequestContext, RequestContextExt};
 
-/// SSO JWT claims issued by the current identity service.
+use crate::auth_config;
+
+/// JWT claims for both SSO and Standalone modes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppClaims {
     pub sub: String,
@@ -30,6 +33,12 @@ pub struct AppClaims {
     pub iat: i64,
     #[serde(default)]
     pub iss: Option<String>,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub namespace: String,
+    #[serde(default)]
+    pub sid: String,
 }
 
 impl AppClaims {
@@ -38,13 +47,6 @@ impl AppClaims {
     }
 }
 
-/// Load the SSO EC P-256 public key from the environment.
-fn load_public_key() -> Option<DecodingKey> {
-    let pem = std::env::var("SSO_JWT_PUBLIC_KEY").ok()?;
-    DecodingKey::from_ec_pem(pem.as_bytes()).ok()
-}
-
-/// Extract a Bearer token from the request headers.
 fn extract_token(req: &ServiceRequest) -> Option<String> {
     req.headers()
         .get(AUTHORIZATION)
@@ -53,10 +55,20 @@ fn extract_token(req: &ServiceRequest) -> Option<String> {
         .map(|v| v.to_string())
 }
 
-/// Verify an ES256 token and return the claims.
-fn verify_token(token: &str, key: &DecodingKey) -> Result<AppClaims, jsonwebtoken::errors::Error> {
+fn verify_token(
+    token: &str,
+    key: &DecodingKey,
+    mode: &auth_config::AuthMode,
+) -> Result<AppClaims, jsonwebtoken::errors::Error> {
     let mut validation = Validation::new(Algorithm::ES256);
-    validation.set_issuer(&["app-creator", "alioth-sso"]);
+    match mode {
+        auth_config::AuthMode::Sso => {
+            validation.set_issuer(&["app-creator", "alioth-sso"]);
+        }
+        auth_config::AuthMode::Standalone => {
+            validation.set_issuer(&["app-creator-standalone"]);
+        }
+    }
     decode::<AppClaims>(token, key, &validation).map(|data| data.claims)
 }
 
@@ -67,6 +79,12 @@ impl SsoAuthMiddleware {
     pub fn new() -> Self {
         Self
     }
+}
+
+pub struct SsoAuthMiddlewareService<S> {
+    service: Rc<S>,
+    mode: auth_config::AuthMode,
+    key: DecodingKey,
 }
 
 impl<S, B> Transform<S, ServiceRequest> for SsoAuthMiddleware
@@ -82,17 +100,15 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        let key = load_public_key();
+        let cfg = auth_config::auth_config();
+        let mode = cfg.mode.clone();
+        let key = cfg.decoding_key.clone();
         ready(Ok(SsoAuthMiddlewareService {
             service: Rc::new(service),
+            mode,
             key,
         }))
     }
-}
-
-pub struct SsoAuthMiddlewareService<S> {
-    service: Rc<S>,
-    key: Option<DecodingKey>,
 }
 
 impl<S, B> Service<ServiceRequest> for SsoAuthMiddlewareService<S>
@@ -109,29 +125,23 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
+        let mode = self.mode.clone();
         let key = self.key.clone();
 
         Box::pin(async move {
             let path = req.path();
 
-            // Public paths bypass authentication but still receive a system context.
-            if path == "/health" || path == "/api/creator/status" {
+            // Public paths — no auth required
+            if path == "/health"
+                || path == "/api/creator/status"
+                || path == "/api/creator/auth/login"
+            {
                 let ctx = RequestContext::with_username(0, "system@appcreator.local", "system");
                 req.extensions_mut().insert(ctx);
+                req.extensions_mut().insert(String::new());
                 let res = service.call(req).await?;
                 return Ok(res.map_into_left_body());
             }
-
-            let key = match key {
-                Some(k) => k,
-                None => {
-                    let response = HttpResponse::Unauthorized().json(serde_json::json!({
-                        "error": "auth_not_configured",
-                        "message": "SSO_JWT_PUBLIC_KEY not configured on server"
-                    }));
-                    return Ok(req.into_response(response).map_into_right_body());
-                }
-            };
 
             let token = match extract_token(&req) {
                 Some(t) => t,
@@ -144,21 +154,35 @@ where
                 }
             };
 
-            match verify_token(&token, &key) {
+            match verify_token(&token, &key, &mode) {
                 Ok(claims) => {
-                    let username = claims
-                        .email
-                        .split('@')
-                        .next()
-                        .unwrap_or(&claims.email)
-                        .to_string();
-                    let ctx = RequestContext::with_username_and_admin(
-                        claims.user_id(),
-                        claims.email.clone(),
-                        username,
-                        claims.is_superuser,
-                    );
+                    let (ctx, ns) = match &mode {
+                        auth_config::AuthMode::Sso => {
+                            let username = claims
+                                .email
+                                .split('@')
+                                .next()
+                                .unwrap_or(&claims.email)
+                                .to_string();
+                            let ctx = RequestContext::with_username_and_admin(
+                                claims.user_id(),
+                                claims.email.clone(),
+                                username,
+                                claims.is_superuser,
+                            );
+                            (ctx, String::new())
+                        }
+                        auth_config::AuthMode::Standalone => {
+                            let ctx = RequestContext::with_username(
+                                claims.user_id(),
+                                claims.email.clone(),
+                                claims.username.clone(),
+                            );
+                            (ctx, claims.namespace.clone())
+                        }
+                    };
                     req.extensions_mut().insert(ctx);
+                    req.extensions_mut().insert(ns);
                     req.extensions_mut().insert(claims);
                     let res = service.call(req).await?;
                     Ok(res.map_into_left_body())
@@ -176,12 +200,19 @@ where
     }
 }
 
-/// Extract the authenticated user context from a request.
 pub fn extract_user(req: &actix_web::HttpRequest) -> Option<RequestContext> {
     req.context()
 }
 
-/// Extract the authenticated user ID from a request.
 pub fn extract_user_id(req: &actix_web::HttpRequest) -> i64 {
     common::context::extract_user_id(req).unwrap_or(0)
+}
+
+/// Extract the namespace injected by middleware (standalone mode).
+/// Returns empty string in SSO mode or for public paths.
+pub fn extract_namespace(req: &actix_web::HttpRequest) -> String {
+    req.extensions()
+        .get::<String>()
+        .cloned()
+        .unwrap_or_default()
 }

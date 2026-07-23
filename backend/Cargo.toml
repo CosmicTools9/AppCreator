@@ -17,7 +17,7 @@ serde_json = { workspace = true }
 yaml_serde = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
-sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "chrono", "macros"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "chrono", "macros", "json"] }
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 bcrypt = "0.19"
 env_logger = "0.11"

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAtom } from "jotai";
 import { useAuth } from "../stores/auth";
@@ -9,7 +9,7 @@ import {
   prototypeUrlAtom,
   type ChatMessage,
 } from "../stores/chat";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, type ChatSession } from "../api/client";
 
 export function WorkspacePage() {
   const navigate = useNavigate();
@@ -20,9 +20,24 @@ export function WorkspacePage() {
   const [prototypeUrl, setPrototypeUrl] = useAtom(prototypeUrlAtom);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const chatEnd = useRef<HTMLDivElement>(null);
 
   const opts = { token };
+
+  const refreshSessions = useCallback(async () => {
+    try {
+      const res = await api.listSessions(null, opts);
+      setSessions(res.sessions ?? []);
+    } catch {
+      // 列表失败不阻塞主流程
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    refreshSessions();
+  }, [refreshSessions]);
 
   useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,6 +54,7 @@ export function WorkspacePage() {
   const loadSession = async (id: number) => {
     try {
       const session = await api.getSession(id, opts);
+      setSessionId(id);
       setMessages(session.messages ?? []);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "加载会话失败");
@@ -58,7 +74,7 @@ export function WorkspacePage() {
         const session = await api.createSession(
           {
             title: text.slice(0, 80),
-            namespace: "AppCreator",
+            namespace: "",
           },
           opts
         );
@@ -92,11 +108,12 @@ export function WorkspacePage() {
       setMessages((prev) => [...prev, assistantMsg]);
 
       if (step.is_terminal) {
-        setPrototypeUrl("/preview");
+        setPrototypeUrl(String(id));
       }
 
       // Sync with persisted messages (including any extra system messages from the agent)
       await loadSession(id);
+      refreshSessions();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "生成失败，请重试");
       setIsGenerating(false);
@@ -116,12 +133,17 @@ export function WorkspacePage() {
         </div>
         <button className="workspace-new-btn" onClick={newSession}>+ 新建会话</button>
         <div className="workspace-sidebar-list">
-          {messages.length > 0 && (
-            <div className="workspace-session-item active">
-              {messages[0].content.slice(0, 24)}...
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              className={`workspace-session-item${s.id === sessionId ? " active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => loadSession(s.id)}
+            >
+              {s.title || `会话 #${s.id}`}
             </div>
-          )}
-          {messages.length === 0 && (
+          ))}
+          {sessions.length === 0 && (
             <p className="muted-text" style={{ padding: 16, fontSize: 12, textAlign: "center" }}>
               开始新对话
             </p>
@@ -179,7 +201,15 @@ export function WorkspacePage() {
               <div className="workspace-prototype-banner">
                 <span>✅ 原型已就绪</span>
                 <button className="btn btn-primary" style={{ padding: "6px 16px", fontSize: 13 }}
-                  onClick={() => window.open(prototypeUrl, "_blank")}>
+                  onClick={async () => {
+                    try {
+                      const html = await api.fetchPrototype(Number(prototypeUrl), opts);
+                      const blob = new Blob([html], { type: "text/html" });
+                      window.open(URL.createObjectURL(blob), "_blank");
+                    } catch (e) {
+                      setError(e instanceof ApiError ? e.message : "加载原型失败");
+                    }
+                  }}>
                   预览应用
                 </button>
               </div>

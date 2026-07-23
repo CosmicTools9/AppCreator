@@ -13,13 +13,9 @@ use common::testing::connect_test_db;
 async fn chat_session_create_get_roundtrip() {
     let pool = connect_test_db().await;
 
-    let row = chat::create_session(&pool,
-        "Integration test session",
-        None,
-        "Alioth",
-    )
-    .await
-    .expect("create_session failed");
+    let row = chat::create_session(&pool, "Integration test session", None, "Alioth")
+        .await
+        .expect("create_session failed");
 
     assert_eq!(row.title, "Integration test session");
     assert_eq!(row.namespace, "Alioth");
@@ -78,6 +74,47 @@ async fn agent_context_save_and_load_roundtrip() {
 }
 
 #[tokio::test]
+async fn list_sessions_filters_by_namespace_and_orders_desc() {
+    let pool = connect_test_db().await;
+
+    let uniq = chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default();
+    let ns = format!("ListTest-{uniq}");
+    let other_ns = format!("ListTestOther-{uniq}");
+    let s1 = chat::create_session(&pool, "first", None, &ns)
+        .await
+        .expect("create s1 failed");
+    let s2 = chat::create_session(&pool, "second", None, &ns)
+        .await
+        .expect("create s2 failed");
+    let _other = chat::create_session(&pool, "other", None, &other_ns)
+        .await
+        .expect("create other failed");
+
+    let rows = chat::list_sessions(&pool, Some(&ns), 20)
+        .await
+        .expect("list_sessions failed");
+
+    assert!(rows.len() >= 2, "expected at least 2 sessions in namespace");
+    let ids: Vec<i64> = rows.iter().map(|r| r.id).collect();
+    assert!(ids.contains(&s1.id) && ids.contains(&s2.id));
+    // 全部结果都属于目标 namespace
+    assert!(rows.iter().all(|r| r.namespace == ns));
+    // updated_at DESC：相邻项单调不增
+    for w in rows.windows(2) {
+        assert!(
+            w[0].updated_at >= w[1].updated_at,
+            "must be ordered by updated_at DESC"
+        );
+    }
+
+    // limit 生效
+    let limited = chat::list_sessions(&pool, Some(&ns), 1)
+        .await
+        .expect("list_sessions with limit failed");
+    assert_eq!(limited.len(), 1);
+}
+
+#[tokio::test]
 async fn app_agent_single_step_with_mock_llm() {
     let pool = connect_test_db().await;
 
@@ -96,9 +133,7 @@ async fn app_agent_single_step_with_mock_llm() {
     let agent = AppAgent::new(std::sync::Arc::new(pool), Box::new(mock_llm));
 
     let result = agent
-        .run_single_step(&mut ctx,
-            None::<&fn(app_agent::AgentProgress)>,
-        )
+        .run_single_step(&mut ctx, None::<&fn(app_agent::AgentProgress)>)
         .await;
 
     // The mock LLM returns a default response; the step should transition the state machine.

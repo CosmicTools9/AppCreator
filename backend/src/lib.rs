@@ -3,13 +3,12 @@
 //! 独立服务，与 Meta 仅共享 DB。
 //! API 无交互，认证通过 SSO JWT (ES256)。
 
+pub mod app_repository;
+pub mod auth_config;
 pub mod chat;
-pub mod docker;
 pub mod handlers;
 pub mod meta_reader;
 pub mod middleware;
-pub mod models;
-pub mod store;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -45,16 +44,6 @@ impl Default for AppConfig {
 pub enum AppCreatorError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Template error: {0}")]
-    Template(String),
-    #[error("Build error: {0}")]
-    Build(String),
-    #[error("Meta API error: {0}")]
-    MetaApi(String),
-    #[error("模型版本不匹配: 期望 {expected}, 实际 {actual}")]
-    ModelVersionMismatch { expected: String, actual: String },
-    #[error("原型文件缺失: {0}")]
-    PrototypeMissing(String),
 }
 
 /// 构建结果

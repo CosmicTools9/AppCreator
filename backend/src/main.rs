@@ -3,7 +3,6 @@ use actix_web::{middleware::Logger, web, App, HttpRequest, HttpResponse, HttpSer
 use app_creator::chat;
 use app_creator::handlers;
 use app_creator::middleware::SsoAuthMiddleware;
-use app_creator::store::AppStore;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -17,7 +16,8 @@ async fn main() -> std::io::Result<()> {
 
     // Database pool (required for AppAgent persistence)
     let database_url = std::env::var("DATABASE_URL").expect(
-        "DATABASE_URL must be set. Use scripts/db/ensure-schema.sh to initialize the schema.");
+        "DATABASE_URL must be set. Use scripts/db/ensure-schema.sh to initialize the schema.",
+    );
     let pool = sqlx::PgPool::connect(&database_url)
         .await
         .expect("Failed to connect to database");
@@ -28,6 +28,9 @@ async fn main() -> std::io::Result<()> {
     let llm_service = llm::LlmService::new(llm_config)
         .expect("Failed to initialize LLM service; check LLM_PROVIDER / LLM_API_KEY");
     let llm_data = web::Data::new(llm_service);
+
+    // 认证模式初始化（SSO/Standalone 双模式判定）
+    app_creator::auth_config::init_auth_config();
 
     // Config
     let server_addr =
@@ -43,8 +46,6 @@ async fn main() -> std::io::Result<()> {
         .init();
     log::info!("AppCreator config loaded: server_addr={}", server_addr);
 
-    // In-memory store (still used for projects/templates/builds until Phase 5 migration)
-    let store = web::Data::new(AppStore::new());
     let frontend_dir_data = web::Data::new(frontend_dir);
 
     log::info!("AppCreator Service listening on {}", server_addr);
@@ -54,28 +55,28 @@ async fn main() -> std::io::Result<()> {
             // API v1 — all /api/creator/* endpoints
             .service(
                 web::scope("/api/creator")
-                    // P0 — Projects CRUD
-                    .route("/projects", web::get().to(handlers::list_projects))
-                    .route("/projects", web::post().to(handlers::create_project))
-                    .route("/projects/{id}", web::get().to(handlers::get_project))
-                    .route("/projects/{id}", web::put().to(handlers::update_project))
-                    .route("/projects/{id}", web::delete().to(handlers::delete_project))
                     // P1 — Chat sessions (AppAgent-driven)
                     .configure(chat::configure_routes)
-                    // P2 — Builds + Deployments
-                    .route("/projects/{id}/build", web::post().to(handlers::trigger_build))
-                    .route("/projects/{id}/builds", web::get().to(handlers::list_builds))
-                    .route("/projects/{id}/builds/{bid}", web::get().to(handlers::get_build))
-                    .route("/projects/{id}/deploy", web::post().to(handlers::trigger_deploy))
-                    .route("/projects/{id}/deployments", web::get().to(handlers::list_deployments))
+                    // P4 — App FS Repository
+                    .route("/apps", web::get().to(handlers::list_apps))
+                    .route("/apps/{code}", web::get().to(handlers::get_app))
+                    .route("/apps/{code}", web::delete().to(handlers::delete_app))
+                    // P0 — App creation (via AppAgent)
+                    .route("/apps", web::post().to(chat::create_app_handler))
                     // P3 — User
                     .route("/user/me", web::get().to(handlers::get_current_user))
+                    // P3b — Standalone login (404 in SSO mode)
+                    .route("/auth/login", web::post().to(handlers::login_standalone)),
             )
             .wrap(Logger::default())
+            .wrap(common::RateLimitMiddleware::per_ip_any(
+                &["/api/creator/auth/login"],
+                10.0,
+                10.0 / 60.0,
+            ))
             .wrap(SsoAuthMiddleware::new())
             .app_data(pool_data.clone())
             .app_data(llm_data.clone())
-            .app_data(store.clone())
             .app_data(frontend_dir_data.clone())
             .route("/health", web::get().to(health_check))
             .route("/api/creator/status", web::get().to(api_status))
@@ -91,10 +92,16 @@ async fn health_check() -> HttpResponse {
 }
 
 async fn api_status() -> HttpResponse {
+    let cfg = app_creator::auth_config::auth_config();
+    let auth_mode = match cfg.mode {
+        app_creator::auth_config::AuthMode::Sso => "sso",
+        app_creator::auth_config::AuthMode::Standalone => "standalone",
+    };
     HttpResponse::Ok().json(serde_json::json!({
         "service": "app-creator",
         "version": env!("CARGO_PKG_VERSION"),
-        "status": "running"
+        "status": "running",
+        "auth_mode": auth_mode,
     }))
 }
 
@@ -110,5 +117,8 @@ async fn spa_fallback(
     if file_path.is_file() {
         return Ok(NamedFile::open(file_path)?);
     }
-    Ok(NamedFile::open(format!("{}/index.html", frontend_dir.as_ref()))?)
+    Ok(NamedFile::open(format!(
+        "{}/index.html",
+        frontend_dir.as_ref()
+    ))?)
 }

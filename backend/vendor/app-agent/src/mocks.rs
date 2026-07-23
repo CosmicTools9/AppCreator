@@ -96,8 +96,18 @@ impl MockLlmService {
         self.call_count.load(Ordering::SeqCst)
     }
 
-    fn next_response(&self, prompt: &str) -> Result<String, LlmError> {
+    fn next_response(&self, prompt: &str, system: &str) -> Result<String, LlmError> {
         self.call_count.fetch_add(1, Ordering::SeqCst);
+        // ExecutingSkill 步骤：由确定性「技能执行器」产出 tool_calls，
+        // 让真实 tool_call 执行（write_file 等）落盘产物，run_command 门禁再真实执行。
+        if system.contains("技能执行引擎") {
+            if let Some(resp) = skill_actor_response(system) {
+                return match resp {
+                    MockResponse::RouterJson(s) | MockResponse::OntologyJson(s) => Ok(s),
+                    MockResponse::Error(s) => Err(LlmError { message: s }),
+                };
+            }
+        }
         if let Some(h) = &self.handler {
             return match h(prompt) {
                 MockResponse::RouterJson(s) | MockResponse::OntologyJson(s) => Ok(s),
@@ -117,23 +127,134 @@ impl MockLlmService {
     }
 }
 
+/// 解析 system prompt 中的技能名与步骤 ID。
+fn parse_skill_step(system: &str) -> Option<(String, String)> {
+    let name = system
+        .find("技能：")
+        .and_then(|i| {
+            let rest = &system[i + "技能：".len()..];
+            rest.lines().next().map(|l| l.trim().to_string())
+        })?;
+    let step = system
+        .find("步骤 ")
+        .and_then(|i| {
+            let rest = &system[i + "步骤 ".len()..];
+            let end = rest
+                .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+                .unwrap_or(rest.len());
+            let s = rest[..end].trim().to_string();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })?;
+    Some((name, step))
+}
+
+/// 确定性技能执行器：依据 (技能, 步骤) 返回需写出的产物 (模板路径, 内容)。
+fn skill_step_artifacts(skill: &str, step: &str) -> Vec<(String, String)> {
+    match (skill, step) {
+        ("alioth-module", "1.2") => vec![(
+            "Pre-Proc/{ns}/Prototypes/Modules/{module}/capability-map.md".to_string(),
+            "# Capability Map\n\n| Capability | Block | Description |\n|---|---|---|\n| list | main | 列表 |\n".to_string(),
+        )],
+        ("alioth-module", "1.5") => vec![
+            (
+                "Pre-Proc/{ns}/Prototypes/Modules/{module}/llm-tsx/module.tsx".to_string(),
+                "export default function ModulePrototype() { return null; }\n".to_string(),
+            ),
+            (
+                "Pre-Proc/{ns}/Prototypes/Modules/{module}/m-v1.html".to_string(),
+                "<!doctype html><html><body>module prototype</body></html>\n".to_string(),
+            ),
+        ],
+        ("alioth-module", "1.6") => vec![(
+            "Pre-Proc/{ns}/Prototypes/visual-verify/{module}/v1/report.json".to_string(),
+            serde_json::json!({
+                "module": "{module}",
+                "frames": 7,
+                "scores": {"layout": 92, "contrast": 91, "consistency": 93, "readability": 90, "feedback": 92, "accessibility": 91},
+                "passed": true
+            })
+            .to_string(),
+        )],
+        ("alioth-block", "1.2") | ("alioth-block", "1.3") => vec![
+            (
+                "Pre-Proc/{ns}/Prototypes/Blocks/{block}/llm-tsx/block.tsx".to_string(),
+                "export default function BlockPrototype() { return null; }\n".to_string(),
+            ),
+            (
+                "Pre-Proc/{ns}/Prototypes/Blocks/{block}/b-v1.html".to_string(),
+                "<!doctype html><html><body>block prototype</body></html>\n".to_string(),
+            ),
+        ],
+        ("alioth-service", "1.2") => vec![(
+            "Pre-Proc/{ns}/Sources/Services/{service}/dto/example.ts".to_string(),
+            "export interface ExampleDto { id: string; name: string; }\n".to_string(),
+        )],
+        ("alioth-service", "1.3") | ("alioth-service", "1.5") => vec![(
+            "Pre-Proc/{ns}/Sources/Services/{service}/_verified.json".to_string(),
+            serde_json::json!({"verified": true, "step": step}).to_string(),
+        )],
+        ("alioth-compose", "1.4") => vec![(
+            "Pre-Proc/{ns}/Apps/{app}/m-v1.html".to_string(),
+            "<!doctype html><html><body>app prototype</body></html>\n".to_string(),
+        )],
+        ("alioth-compose", "1.5") => vec![(
+            "Pre-Proc/{ns}/Apps/{app}/compose-report.json".to_string(),
+            serde_json::json!({
+                "app": "{app}",
+                "modules": [],
+                "extensions": ["constraints.yaml", "rules.yaml", "statemachines.yaml", "workflows.yaml"],
+                "prototype": "m-v1.html",
+                "passed": true
+            })
+            .to_string(),
+        )],
+        _ => vec![],
+    }
+}
+
+/// 构造技能执行器的 LLM 响应（含 write_file tool_calls）。
+fn skill_actor_response(system: &str) -> Option<MockResponse> {
+    let (skill, step) = parse_skill_step(system)?;
+    let artifacts = skill_step_artifacts(&skill, &step);
+    let tool_calls: Vec<serde_json::Value> = artifacts
+        .into_iter()
+        .map(|(path, content)| {
+            serde_json::json!({
+                "name": "write_file",
+                "arguments": {"path": path, "content": content}
+            })
+        })
+        .collect();
+    let body = serde_json::json!({
+        "completed": true,
+        "summary": format!("skill {} step {} executed by mock actor", skill, step),
+        "artifacts": {},
+        "tool_calls": tool_calls
+    });
+    Some(MockResponse::OntologyJson(body.to_string()))
+}
+
 #[async_trait]
 impl LlmService for MockLlmService {
     async fn generate(&self, prompt: &str) -> Result<String, LlmError> {
-        self.next_response(prompt)
+        self.next_response(prompt, "")
     }
 
-    async fn generate_with_system(&self, _system: &str, prompt: &str) -> Result<String, LlmError> {
-        self.next_response(prompt)
+    async fn generate_with_system(&self, system: &str, prompt: &str) -> Result<String, LlmError> {
+        self.next_response(prompt, system)
     }
 
     async fn generate_with_params(
         &self,
-        _system: &str,
+        system: &str,
         prompt: &str,
         _overrides: GenerationOverrides,
     ) -> Result<String, LlmError> {
-        self.next_response(prompt)
+        self.next_response(prompt, system)
     }
 }
 

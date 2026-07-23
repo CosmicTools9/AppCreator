@@ -80,6 +80,12 @@ pub enum ExecutionEvent {
         completed: bool,
         summary: String,
     },
+    /// 技能内工具调用（ExecutingSkill 真实执行 tool_call）
+    ToolCall {
+        tool: String,
+        success: bool,
+        detail: Option<String>,
+    },
 }
 
 /// 一次完整的日志记录

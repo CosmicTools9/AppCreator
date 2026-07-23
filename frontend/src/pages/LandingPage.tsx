@@ -1,3 +1,5 @@
+// 单一真相源：AppCreator Landing Page 的权威实现。
+// 旧设计稿 design/landing-v1.html 已于 2026-07-22 归档至 design/_archive/（如需恢复：git mv 回 design/ 即可）。
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSetAtom } from "jotai";
@@ -62,6 +64,28 @@ function TemplateIcon({ i }: { i: number }) {
   return <>{icons[i]}</>;
 }
 
+const FAQS = [
+  { q: "免费预览能做什么？", a: "用 AI 对话创建应用原型，预览、下载、无限次迭代全部免费。只有需要可部署的源码包时才付费。" },
+  { q: "「每月 60 个产品原型额度」怎么算？", a: "每开启一个全新应用算 1 个额度；同一应用内的对话迭代不消耗额度，重新生成也不计费。" },
+  { q: "源码包怎么收费？", a: "专业订阅内含首次源码包下载（¥4,999）；后续再次下载仅 ¥19.9/次；原型迭代本身免费。" },
+  { q: "生成的应用用什么技术栈？", a: "Rust 后端 + React 前端 + PostgreSQL，遵循 Alioth 四层隔离架构，Docker 编排开箱即用。" },
+  { q: "支持私有部署与数据安全吗？", a: "免费版与专业版为云服务；企业版（AliothStudio）支持 Docker 私域单机 / 集群部署，配套独立 SSO 与 NGAC 权限模型。" },
+  { q: "没有技术团队也能上线吗？", a: "源码包附带 Docker 编排与部署文档，一条命令完成构建部署；企业版可联系我们提供上线协助。" },
+];
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`faq-item${open ? " open" : ""}`}>
+      <button className="faq-q" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {q}
+        <svg className="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      {open && <div className="faq-a">{a}</div>}
+    </div>
+  );
+}
+
 export function LandingPage() {
   const navigate = useNavigate();
   const { token } = useAuth();
@@ -78,7 +102,7 @@ export function LandingPage() {
     setCreateError(null);
     try {
       const res = await api.createApp(
-        { name: appName.trim(), description: appDesc.trim(), namespace: "AppCreator" },
+        { name: appName.trim(), description: appDesc.trim() },
         { token }
       );
       setSessionId(res.session.id);
@@ -203,14 +227,14 @@ export function LandingPage() {
 
         {/* Capabilities */}
         <div className="section-label" id="caps">—— 核心能力</div>
-        <h2 className="text-h1" style={{ marginBottom: 48 }}>从对话到生产，一站式覆盖</h2>
-        <div className="caps-grid" style={{ textAlign: "left", maxWidth: 960, margin: "0 auto 80px" }}>
+        <h2 className="text-h1 section-heading">从对话到生产，一站式覆盖</h2>
+        <div className="caps-grid">
           {CAPABILITIES.map((cap) => (
             <div className="cap-card" key={cap.title}>
               <div className="card-icon"><CapIcon name={cap.icon} /></div>
-              <div style={{ flex: 1 }}>
+              <div>
                 <h3>{cap.title}</h3>
-                <p className="muted-text" style={{ fontSize: 13, lineHeight: 1.6 }}>{cap.desc}</p>
+                <p className="muted-text">{cap.desc}</p>
               </div>
             </div>
           ))}
@@ -218,21 +242,58 @@ export function LandingPage() {
 
         {/* Templates */}
         <div className="section-label" id="templates">—— 适用场景</div>
-        <h2 className="text-h1" style={{ marginBottom: 48 }}>企业应用的每一个角落</h2>
-        <div className="templates-grid" style={{ maxWidth: 640, margin: "0 auto 80px" }}>
+        <h2 className="text-h1 section-heading">企业应用的每一个角落</h2>
+        <div className="templates-grid">
           {TEMPLATES.map((t, i) => (
             <div className="template-card" key={t.name}>
               <div className="template-icon"><TemplateIcon i={i} /></div>
               <h3>{t.name}</h3>
-              <p className="muted-text" style={{ fontSize: 12 }}>{t.desc}</p>
+              <p className="muted-text">{t.desc}</p>
             </div>
           ))}
         </div>
 
+        {/* Social proof */}
+        <section className="stats-section">
+          <div className="stats-grid">
+            <div className="stat-item">
+              <div className="stat-number">10,000<span className="stat-suffix">+</span></div>
+              <div className="stat-label">企业应用原型已生成</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-number">500<span className="stat-suffix">+</span></div>
+              <div className="stat-label">企业团队正在使用</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-number">8<span className="stat-suffix"> 分钟</span></div>
+              <div className="stat-label">平均产出首个可用原型</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-number">99.9<span className="stat-suffix">%</span></div>
+              <div className="stat-label">原型生成成功率</div>
+            </div>
+          </div>
+          {/* TODO: 下方数字/行业标签/证言为占位，请由市场或运营替换为真实运营数据 */}
+          <div className="logos-strip">
+            <span className="logos-strip-label">已被各行业团队用于</span>
+            <div className="logos-row">
+              <span className="logo-pill">制造企业</span>
+              <span className="logo-pill">物流供应链</span>
+              <span className="logo-pill">零售连锁</span>
+              <span className="logo-pill">金融服务</span>
+              <span className="logo-pill">教育培训</span>
+            </div>
+          </div>
+          <div className="testimonial">
+            <p className="testimonial-quote">“我们用 AppCreator 在两天内搭出了完整的采购审批流，省下了一个月的外包开发量。”</p>
+            <p className="testimonial-author">— 某制造企业 IT 负责人</p>
+          </div>
+        </section>
+
         {/* Pricing */}
         <div className="section-label">—— 定价</div>
-        <h2 className="text-h1" style={{ marginBottom: 48 }}>选择适合你的方案</h2>
-        <div className="pricing-grid" style={{ maxWidth: 960 }}>
+        <h2 className="text-h1 section-heading">选择适合你的方案</h2>
+        <div className="pricing-grid">
           {/* 免费预览 */}
           <div className="pricing-card">
             <h3 className="pricing-tier">免费预览</h3>
@@ -243,7 +304,7 @@ export function LandingPage() {
               <li>无限次迭代修改</li>
               <li>社区支持</li>
             </ul>
-            <button className="btn btn-secondary" onClick={() => navigate("/workspace")} style={{ width: "100%", justifyContent: "center" }}>免费开始</button>
+            <button className="btn btn-secondary btn-block" onClick={() => navigate("/workspace")}>免费开始</button>
           </div>
           {/* 专业订阅 */}
           <div className="pricing-card featured">
@@ -258,12 +319,12 @@ export function LandingPage() {
               <li>再次下载仅 <strong>¥19.9/次</strong></li>
               <li>优先技术支持</li>
             </ul>
-            <button className="btn btn-primary" onClick={() => navigate("/workspace")} style={{ width: "100%", justifyContent: "center" }}>立即订阅</button>
+            <button className="btn btn-primary btn-block" onClick={() => navigate("/workspace")}>立即订阅</button>
           </div>
           {/* AliothStudio = 企业定制 */}
           <div className="pricing-card">
             <h3 className="pricing-tier">AliothStudio</h3>
-            <p className="pricing-price" style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 4 }}>企业定制方案</p>
+            <p className="pricing-price-sub">企业定制方案</p>
             <p className="pricing-price"><span className="pricing-amount">¥499,999</span></p>
             <ul className="pricing-features">
               <li>基于元数据的自定义扩展</li>
@@ -273,9 +334,24 @@ export function LandingPage() {
               <li>代码包无限下载</li>
               <li>优先技术支持</li>
             </ul>
-            <button className="btn btn-secondary" onClick={() => {}} style={{ width: "100%", justifyContent: "center" }}>联系销售</button>
+            <button className="btn btn-secondary btn-block" onClick={() => {}}>联系销售</button>
           </div>
         </div>
+
+        <p className="pricing-note">
+          计费说明：原型生成与迭代全程免费；源码包为一次性下载（专业版首单 ¥4,999，后续 ¥19.9/次）；企业版按定制方案报价。
+        </p>
+
+        {/* FAQ */}
+        <section className="faq-section">
+          <div className="section-label">—— 常见问题</div>
+          <h2 className="text-h1 section-heading--sm">关于定价与部署，你可能想问</h2>
+          <div className="faq-list">
+            {FAQS.map((f) => (
+              <FaqItem key={f.q} q={f.q} a={f.a} />
+            ))}
+          </div>
+        </section>
 
         {/* CTA */}
         <section className="cta-section">

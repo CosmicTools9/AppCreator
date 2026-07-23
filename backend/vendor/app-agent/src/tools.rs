@@ -917,7 +917,9 @@ fn apply_yaml_patch(
 // ══════════════════════════════════════════════════════════════════════════
 
 /// Create a module.json scaffold from a FlowPlan.
-/// Writes to Modules/{namespace}/{id}/module.json.
+/// Writes to Pre-Proc/{namespace}/Sources/Modules/{id}/module.json
+/// （与 create_block_scaffold/create_service_scaffold 及 Gateway 发现的 Pre-Proc 布局一致；
+/// 原 `Modules/{namespace}/{id}` 路径错误，导致 alioth-module 门禁找不到 module.json）。
 pub async fn create_module_scaffold(
     project_root: &str,
     namespace: &str,
@@ -927,8 +929,10 @@ pub async fn create_module_scaffold(
     block_ids: &[String],
 ) -> Result<String, String> {
     let dir = std::path::Path::new(project_root)
-        .join("Modules")
+        .join("Pre-Proc")
         .join(namespace)
+        .join("Sources")
+        .join("Modules")
         .join(module_id);
     tokio::fs::create_dir_all(&dir)
         .await

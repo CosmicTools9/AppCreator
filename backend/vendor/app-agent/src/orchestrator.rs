@@ -50,6 +50,21 @@ fn parse_judge_score(s: &str) -> Option<f32> {
     }
 }
 
+/// 剥离 LLM 输出可能的 markdown code fence（```json ... ```），供 tool_calls 解析。
+fn strip_code_fence_for_tool_call(text: &str) -> String {
+    let trimmed = text.trim();
+    if let Some(rest) = trimmed.strip_prefix("```") {
+        if let Some(start) = rest.find('\n') {
+            let body = &rest[start + 1..];
+            if let Some(end) = body.rfind("```") {
+                return body[..end].trim().to_string();
+            }
+            return body.trim().to_string();
+        }
+    }
+    trimmed.to_string()
+}
+
 impl AppAgent {
     pub fn new(pool: Arc<PgPool>, llm_service: Box<dyn LlmService>) -> Self {
         Self { pool, llm_service }
@@ -217,6 +232,8 @@ impl AppAgent {
             } | AgentState::Published { .. }
                 | AgentState::Presenting { .. }
                 | AgentState::AwaitingUserInput { .. }
+                // Failed 必须为终止态，否则 run() 会在 Failed→Failed 上无限自旋（本 e2e 暴露的 bug）
+                | AgentState::Failed { .. }
         );
 
         let message = if matches!(
@@ -306,10 +323,9 @@ impl AppAgent {
                 step_index: 0,
                 attempt: 0,
                 context: ctx_map,
-                return_state: Box::new(AgentState::Publishing {
-                    publish_attempt: 0,
-                    last_error: None,
-                }),
+                // D1=B：新版路径委托 alioth-service 后必须回到 Composing 生成
+                // app.json(17 字段) + extensions/*.yaml，否则应用产物永不落地。
+                return_state: Box::new(AgentState::Composing),
             }
         } else {
             AgentState::GeneratingFrontend {
@@ -694,6 +710,43 @@ User intent: {intent}
         }
         Ok(())
     }
+
+    /// 解析 LLM 输出 JSON 中的应用层 tool_calls（ExecutingSkill 工具调用）。
+    ///
+    /// 提取 `{ "tool_calls": [ { "name": <工具名>, "arguments": {...} }, ... ] }` 形态；
+    /// 未知工具名由调用方按 ToolRegistry 已注册集合过滤。返回 (name, arguments) 列表。
+    fn parse_skill_tool_calls(raw: &str) -> Vec<(String, serde_json::Value)> {
+        let stripped = strip_code_fence_for_tool_call(raw);
+        let value: serde_json::Value = match serde_json::from_str(&stripped) {
+            Ok(v) => v,
+            Err(_) => return Vec::new(),
+        };
+        let arr = match value.get("tool_calls").and_then(|v| v.as_array()) {
+            Some(arr) => arr,
+            None => return Vec::new(),
+        };
+        arr.iter()
+            .filter_map(|tc| {
+                let name = tc.get("name").and_then(|v| v.as_str())?.to_string();
+                let args = tc
+                    .get("arguments")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
+                Some((name, args))
+            })
+            .collect()
+    }
+
+    /// 把 `{ns}`/`{app}`/`{module}`/`{block}`/`{service}`/`{crate}` 等上下文占位符
+    /// 解析为真实值（复刻 `execute_step_gates` 内的 `resolve_template` 闭包）。
+    fn resolve_templates(s: &str, ctx: &std::collections::HashMap<String, String>) -> String {
+        let mut result = s.to_string();
+        for (k, v) in ctx {
+            result = result.replace(&format!("{{{}}}", k), v);
+        }
+        result
+    }
+
     async fn step<F>(
         &self,
         ctx: &mut ConversationContext,
@@ -759,7 +812,7 @@ User intent: {intent}
             }
 
             AgentState::FunctionDecomposition => {
-                // 2. 功能拆解：分解为功能单元
+                // 2. 功能拆解：从需求提取功能单元，写入 FlowPlan.functional_units（D2 真实逻辑）
                 Self::emit_progress(
                     &on_progress,
                     state_name(&ctx.state),
@@ -768,6 +821,27 @@ User intent: {intent}
                     progress_event::PLANNING_START,
                     None,
                 );
+                let concepts = crate::planner::extract_semantic_concepts(&ctx.user_description);
+                if let Some(ref mut plan) = ctx.flow_plan {
+                    plan.functional_units = concepts
+                        .into_iter()
+                        .map(|c| {
+                            let m = slugify(&c);
+                            crate::state::FunctionalUnit {
+                                name: format!("{}管理", c),
+                                description: format!("处理「{}」相关业务功能", c),
+                                entities: vec![c.clone()],
+                                suggested_module: Some(m.clone()),
+                                suggested_blocks: vec![format!("block-{}", m)],
+                                suggested_services: vec![format!("{}-service", m)],
+                            }
+                        })
+                        .collect();
+                    common::telemetry::info!(
+                        "FunctionDecomposition: {} 功能单元",
+                        plan.functional_units.len()
+                    );
+                }
                 Ok(AgentState::OntologyAnalysis { ontology_round: 0 })
             }
 
@@ -1288,7 +1362,8 @@ User intent: {intent}
 ## 可用工具
 {tools}
 
-输出 JSON：{{ "completed": bool, "summary": str, "artifacts": {{}} }}
+输出 JSON：{{ "completed": bool, "summary": str, "artifacts": {{}}, "tool_calls": [{{ "name": "<工具名>", "arguments": {{...}} }}] }}
+若需写文件/执行命令，请在 tool_calls 中给出对应工具调用（工具定义见「可用工具」）。
 "#,
                     name = skill.name,
                     desc = skill.description,
@@ -1314,7 +1389,105 @@ User intent: {intent}
                     detail.llm_response = Some(result.raw_text.clone());
                 }
 
-                // 补全 step_details 中的 LLM prompt/response
+                // ── 真实 tool_call 执行（彻底）──
+                // 解析 LLM 输出中的 tool_calls（应用层，工具名对应 ToolRegistry 已注册工具），
+                // 对 path / content / args / program 等字符串字段做 {ns}/{app}/{module}/{block}/
+                // {service}/{crate} 模板解析后，逐条经 ToolRegistry 执行，确保门禁前产物已落盘。
+                let raw_calls = Self::parse_skill_tool_calls(&result.raw_text);
+                let mut executed_tool_calls: Vec<serde_json::Value> = Vec::new();
+                for (tc_name, mut tc_args) in raw_calls {
+                    // 仅执行 ToolRegistry 已注册工具，未知工具名跳过（非致命）
+                    if !tool_registry.tool_defs().iter().any(|t| t.name == tc_name) {
+                        common::telemetry::warn!(
+                            "ExecutingSkill: 未知 tool_call '{}' 已跳过",
+                            tc_name
+                        );
+                        continue;
+                    }
+                    // 模板变量解析：path / content / program / args[]
+                    for key in ["path", "content", "program"] {
+                        if let Some(v) = tc_args.get_mut(key) {
+                            if let Some(s) = v.as_str() {
+                                *v =
+                                    serde_json::Value::String(Self::resolve_templates(s, &context));
+                            }
+                        }
+                    }
+                    if let Some(arr) = tc_args.get_mut("args").and_then(|v| v.as_array_mut()) {
+                        for item in arr.iter_mut() {
+                            if let Some(s) = item.as_str() {
+                                *item = serde_json::Value::String(Self::resolve_templates(
+                                    s,
+                                    &context,
+                                ));
+                            }
+                        }
+                    }
+                    common::telemetry::info!(
+                        "ExecutingSkill: 执行工具 '{}' (skill={}, step={})",
+                        tc_name,
+                        skill_name,
+                        step.id
+                    );
+                    let exec = match tool_registry.call(&tc_name, tc_args.clone()).await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            common::telemetry::warn!(
+                                "ExecutingSkill: 工具 '{}' 执行返回错误: {}",
+                                tc_name,
+                                e
+                            );
+                            executed_tool_calls.push(serde_json::json!({
+                                "tool": tc_name,
+                                "success": false,
+                                "error": e,
+                            }));
+                            Self::emit_execution_log(
+                                &mut ctx.execution_log,
+                                ctx.session_id,
+                                &on_progress,
+                                LogLevel::Warn,
+                                ExecutionEvent::ToolCall {
+                                    tool: tc_name.clone(),
+                                    success: false,
+                                    detail: Some(e.clone()),
+                                },
+                            );
+                            continue;
+                        }
+                    };
+                    executed_tool_calls.push(serde_json::json!({
+                        "tool": tc_name,
+                        "success": exec.success,
+                        "error": exec.error,
+                    }));
+                    Self::emit_execution_log(
+                        &mut ctx.execution_log,
+                        ctx.session_id,
+                        &on_progress,
+                        if exec.success {
+                            LogLevel::Info
+                        } else {
+                            LogLevel::Warn
+                        },
+                        ExecutionEvent::ToolCall {
+                            tool: tc_name.clone(),
+                            success: exec.success,
+                            detail: exec.error.clone().or_else(|| {
+                                exec.data.as_ref().map(|_| "ok".to_string())
+                            }),
+                        },
+                    );
+                }
+                if !executed_tool_calls.is_empty() {
+                    common::telemetry::info!(
+                        "ExecutingSkill: 本步执行 {} 个 tool_call (skill={}, step={})",
+                        executed_tool_calls.len(),
+                        skill_name,
+                        step.id
+                    );
+                }
+
                 // ── 门禁执行（硬阻断）──
                 // Step 完成后必须按序通过所有 gates；任一失败则 attempt++ 重试，超过 3 次后进入 Failed
                 let gates_result = Self::execute_step_gates(skill_name, step, context).await;
@@ -1813,7 +1986,10 @@ User intent: {intent}
                     }
                 }
 
-                Ok(AgentState::OntologyTransfer)
+                // D1=B：新 7 阶段主链路 — Extending(gap 分析) 后进入 ModuleCreation，
+                // 而非直接 OntologyTransfer。ModuleCreation→BlockCreation→OntologyTransfer
+                // 已天然连通，且 BlockCreation 会设置 created_blocks 驱动 after_ontology_transfer。
+                Ok(AgentState::ModuleCreation)
             }
             AgentState::Generating => {
                 // 已废弃：原 alioth-gen 代码生成器产物从未被交付（见 state.rs 注释）。
@@ -2007,8 +2183,20 @@ User intent: {intent}
                     );
                 }
 
-                Ok(AgentState::Verifying {
-                    verification_round: 0,
+                // D3：组装完成后交由 alioth-compose 适配器做产物校验/原型构建验证，
+                // 再进入 Verifying。与 META_AI_SPEC §3「Composing 由 alioth-compose 驱动」对齐。
+                let mut ctx_map = std::collections::HashMap::new();
+                ctx_map.insert("ns".to_string(), self.derive_namespace(ctx));
+                ctx_map.insert("app".to_string(), self.derive_app_name(ctx));
+                Ok(AgentState::ExecutingSkill {
+                    skill_name: "alioth-compose".to_string(),
+                    track_index: 0,
+                    step_index: 0,
+                    attempt: 0,
+                    context: ctx_map,
+                    return_state: Box::new(AgentState::Verifying {
+                        verification_round: 0,
+                    }),
                 })
             }
 

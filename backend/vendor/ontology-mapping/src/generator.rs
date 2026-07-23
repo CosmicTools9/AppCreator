@@ -11,7 +11,7 @@ impl CodeGenerator {
         out.push_str(" ===\n");
         out.push_str("// Generated from ontology-mapper v0.1.0\n");
         out.push('\n');
-        out.push_str("#[derive(Debug, Clone, Serialize, Deserialize)]\n");
+        out.push_str("#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]\n");
         out.push_str("pub struct ");
         out.push_str(&entity.name);
         out.push_str("Dto {\n");
@@ -39,7 +39,7 @@ impl CodeGenerator {
         out
     }
 
-    /// Generate a service struct with CRUD method stubs.
+    /// Generate a service struct with working CRUD method implementations.
     pub fn generate_service(entity: &MappedEntity) -> String {
         let mut out = String::new();
         out.push_str("// === Service: ");
@@ -63,37 +63,81 @@ impl CodeGenerator {
         out.push_str("        Self { pool }\n");
         out.push_str("    }\n");
         out.push('\n');
-        out.push_str("    pub async fn list(&self) -> Result<Vec<");
-        out.push_str(&entity.name);
-        out.push_str("Dto>> {\n");
-        out.push_str("        todo!()\n");
-        out.push_str("    }\n");
-        out.push('\n');
-        out.push_str("    pub async fn get(&self, id: i64) -> Result<Option<");
-        out.push_str(&entity.name);
-        out.push_str("Dto>> {\n");
-        out.push_str("        todo!()\n");
-        out.push_str("    }\n");
-        out.push('\n');
-        out.push_str("    pub async fn create(&self, input: ");
-        out.push_str(&entity.name);
-        out.push_str("Dto) -> Result<");
-        out.push_str(&entity.name);
-        out.push_str("Dto> {\n");
-        out.push_str("        todo!()\n");
-        out.push_str("    }\n");
-        out.push('\n');
-        out.push_str("    pub async fn update(&self, id: i64, input: ");
-        out.push_str(&entity.name);
-        out.push_str("Dto) -> Result<");
-        out.push_str(&entity.name);
-        out.push_str("Dto> {\n");
-        out.push_str("        todo!()\n");
-        out.push_str("    }\n");
-        out.push('\n');
-        out.push_str("    pub async fn delete(&self, id: i64) -> Result<()> {\n");
-        out.push_str("        todo!()\n");
-        out.push_str("    }\n");
+
+        // 列映射：DB 列名 → Rust 字段名（SELECT 中以 "db_col" AS "rust_field" 形式对齐）
+        let table = entity.mapping.table.clone();
+        let mut cols: Vec<(String, String)> = Vec::new();
+        for f in &entity.fields {
+            if let Some(col) = &f.column {
+                cols.push((Self::safe_field_name(&f.json_path), col.clone()));
+            }
+        }
+        let data_cols: Vec<(String, String)> = cols
+            .iter()
+            .filter(|(_, c)| c != "id")
+            .cloned()
+            .collect();
+        let select_list = cols
+            .iter()
+            .map(|(rf, dc)| format!("\"{}\" AS \"{}\"", dc, rf.trim_start_matches("r#")))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let insert_cols = data_cols
+            .iter()
+            .map(|(_, dc)| format!("\"{}\"", dc))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let insert_ph: String = (1..=data_cols.len())
+            .map(|i| format!("${}", i))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let update_set: String = data_cols
+            .iter()
+            .enumerate()
+            .map(|(i, (_, dc))| format!("\"{}\" = ${}", dc, i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        // list
+        out.push_str(&format!(
+            "    pub async fn list(&self) -> Result<Vec<{0}Dto>> {{\n        let rows = sqlx::query_as_unchecked::<_, {0}Dto>(\n            \"SELECT {1} FROM \\\"{2}\\\" ORDER BY id\"\n        )\n        .fetch_all(&self.pool)\n        .await?;\n        Ok(rows)\n    }}\n\n",
+            entity.name, select_list, table
+        ));
+
+        // get
+        out.push_str(&format!(
+            "    pub async fn get(&self, id: i64) -> Result<Option<{0}Dto>> {{\n        let row = sqlx::query_as_unchecked::<_, {0}Dto>(\n            \"SELECT {1} FROM \\\"{2}\\\" WHERE id = $1\"\n        )\n        .bind(id)\n        .fetch_optional(&self.pool)\n        .await?;\n        Ok(row)\n    }}\n\n",
+            entity.name, select_list, table
+        ));
+
+        // create
+        out.push_str(&format!(
+            "    pub async fn create(&self, input: {0}Dto) -> Result<{0}Dto> {{\n        let row = sqlx::query_as_unchecked::<_, {0}Dto>(\n            \"INSERT INTO \\\"{2}\\\" ({3}) VALUES ({4}) RETURNING {1}\"\n        )\n",
+            entity.name, select_list, table, insert_cols, insert_ph
+        ));
+        for (rf, _) in &data_cols {
+            out.push_str(&format!("        .bind(input.{})\n", rf));
+        }
+        out.push_str("        .fetch_one(&self.pool)\n        .await?;\n        Ok(row)\n    }\n\n");
+
+        // update
+        out.push_str(&format!(
+            "    pub async fn update(&self, id: i64, input: {0}Dto) -> Result<{0}Dto> {{\n        let row = sqlx::query_as_unchecked::<_, {0}Dto>(\n            \"UPDATE \\\"{2}\\\" SET {3} WHERE id = ${4} RETURNING {1}\"\n        )\n",
+            entity.name, select_list, table, update_set, data_cols.len() + 1
+        ));
+        for (rf, _) in &data_cols {
+            out.push_str(&format!("        .bind(input.{})\n", rf));
+        }
+        out.push_str(&format!(
+            "        .bind(id)\n        .fetch_one(&self.pool)\n        .await?;\n        Ok(row)\n    }}\n\n",
+        ));
+
+        // delete
+        out.push_str(&format!(
+            "    pub async fn delete(&self, id: i64) -> Result<()> {{\n        sqlx::query_unchecked(\n            \"DELETE FROM \\\"{0}\\\" WHERE id = $1\"\n        )\n        .bind(id)\n        .execute(&self.pool)\n        .await?;\n        Ok(())\n    }}\n",
+            table
+        ));
+
         out.push_str("}\n");
         out
     }
@@ -324,7 +368,7 @@ mod tests {
         assert!(dto.contains("pub id: Option<i64>"));
         assert!(dto.contains("pub name: Option<String>"));
         assert!(dto.contains("pub code: Option<String>"));
-        assert!(dto.contains("#[derive(Debug, Clone, Serialize, Deserialize)]"));
+        assert!(dto.contains("#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]"));
     }
 
     #[test]

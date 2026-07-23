@@ -12,7 +12,7 @@
 //! # 文件位置
 //!
 //! ```text
-//! Pre-Proc/Apps/{app}/
+//! Pre-Proc/{namespace}/Apps/{app}/
 //! ├── app.json              ← 模块组合配置
 //! └── extensions/
 //!     ├── constraints.yaml  ← 约束验证
@@ -29,9 +29,9 @@ use crate::behavior::{LifecycleEvent, State, Transition};
 use crate::model_registry::AppModelConfig;
 use crate::swrl::SwrlRule;
 
-// ─────────────────────────────────────────────────────────────
+// ===================================================================
 // AppContext — 应用上下文标识
-// ─────────────────────────────────────────────────────────────
+// ===================================================================
 
 /// 应用上下文 — 标识当前请求所属的应用代码
 ///
@@ -42,9 +42,9 @@ pub struct AppContext {
     pub app_code: String,
 }
 
-// ─────────────────────────────────────────────────────────────
+// ===================================================================
 // AppLogicExtension — 应用级逻辑扩展总配置
-// ─────────────────────────────────────────────────────────────
+// ===================================================================
 
 /// 应用级逻辑扩展配置
 ///
@@ -75,6 +75,7 @@ pub struct AppLogicExtension {
     #[serde(default)]
     pub model_profiles: HashMap<String, AppModelConfig>,
 }
+
 
 fn default_version() -> String {
     "1.0.0".to_string()

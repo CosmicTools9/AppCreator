@@ -38,7 +38,6 @@ impl MetaField {
     }
 }
 
-
 /// Load fields for a specific collection.
 pub async fn load_fields(pool: &PgPool, collection: &str) -> Result<Vec<MetaField>, sqlx::Error> {
     let rows = sqlx::query_as::<_, MetaField>(
@@ -47,7 +46,7 @@ pub async fn load_fields(pool: &PgPool, collection: &str) -> Result<Vec<MetaFiel
         FROM isahl_meta.meta_fields
         WHERE fk_collection = $1
         ORDER BY created_at
-        "#
+        "#,
     )
     .bind(collection)
     .fetch_all(pool)

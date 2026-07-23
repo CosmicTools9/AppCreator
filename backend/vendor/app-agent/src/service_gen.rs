@@ -35,13 +35,18 @@ pub fn mapped_entities_to_mapping_output(
         relationships: vec![],
     }).collect();
 
+    let summary = TierSummary {
+        safe: mapped.iter().filter(|e| e.mapping.tier == Tier::Safe).count(),
+        suggest: mapped.iter().filter(|e| e.mapping.tier == Tier::Suggest).count(),
+        unclear: mapped.iter().filter(|e| e.mapping.tier == Tier::Unclear).count(),
+    };
     MappingOutput {
         meta: OutputMeta {
-            tool_version: "0.1.0".into(),
+            tool_version: "app-agent".into(),
             alioth_model: alioth_version.into(),
         },
         entities: mapped,
-        summary: TierSummary { safe: 0, suggest: 0, unclear: 0 },
+        summary,
     }
 }
 
@@ -54,7 +59,6 @@ pub async fn generate_service_backend(
 ) -> Result<usize, String> {
     if entities.is_empty() { return Ok(0); }
 
-    use std::path::PathBuf;
     let root = crate::composer::resolve_project_root();
     let out_dir = root
         .join("Pre-Proc").join(namespace).join("Sources")

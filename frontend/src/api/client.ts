@@ -23,24 +23,21 @@ async function request<T>(
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, (body as { error?: string }).error || res.statusText);
+    const b = body as { error?: string; message?: string };
+    throw new ApiError(res.status, b.error ?? b.message ?? res.statusText);
   }
-  return res.json();
+  const json = await res.json();
+  // 解包后端 ApiResponse 格式 `{ success: boolean, data: T }`（与 Meta 前端惯例一致）
+  if (json && typeof json === "object" && "success" in json && "data" in json) {
+    return json.data as T;
+  }
+  return json as T;
 }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
-}
-
-// ── Projects ──────────────────────────────────────────
-
-export interface Project {
-  id: number;
-  name: string;
-  status: string;
-  created_at: string;
 }
 
 // ── Chat ──────────────────────────────────────────────
@@ -78,15 +75,6 @@ export interface CreateAppResponse {
 }
 
 export const api = {
-  listProjects: (opts: ApiOptions) =>
-    request<{ projects: Project[]; total: number }>("/projects", {
-      method: "GET",
-      ...opts,
-    }),
-
-  getProject: (id: number, opts: ApiOptions) =>
-    request<Project>(`/projects/${id}`, { method: "GET", ...opts }),
-
   // ── Chat Sessions ───────────────────────────────────
   createSession: (
     body: { title?: string; app_instance_id?: number | null; namespace: string },
@@ -99,7 +87,7 @@ export const api = {
     }),
 
   createApp: (
-    body: { name: string; description: string; namespace: string },
+    body: { name: string; description: string },
     opts: ApiOptions
   ) =>
     request<CreateAppResponse>("/apps", {
@@ -110,6 +98,12 @@ export const api = {
 
   getSession: (id: number, opts: ApiOptions) =>
     request<ChatSession>(`/sessions/${id}`, { method: "GET", ...opts }),
+
+  listSessions: (namespace: string | null, opts: ApiOptions) =>
+    request<{ sessions: ChatSession[] }>(
+      `/sessions${namespace ? `?namespace=${encodeURIComponent(namespace)}` : ""}`,
+      { method: "GET", ...opts }
+    ),
 
   addMessage: (
     id: number,
@@ -127,4 +121,19 @@ export const api = {
       method: "POST",
       ...opts,
     }),
+
+  /** Fetch prototype.html as raw text (auth header attached; not JSON). */
+  fetchPrototype: async (id: number, opts: ApiOptions): Promise<string> => {
+    const headers: Record<string, string> = {};
+    if (opts.token) {
+      headers["Authorization"] = `Bearer ${opts.token}`;
+    }
+    const res = await fetch(`${BASE}/sessions/${id}/prototype`, { headers });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const b = body as { error?: string; message?: string };
+      throw new ApiError(res.status, b.error ?? b.message ?? res.statusText);
+    }
+    return res.text();
+  },
 };

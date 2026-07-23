@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./stores/provider";
-import { AppLayout } from "./components/AppLayout";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
@@ -21,10 +20,8 @@ function App() {
         {/* Public: login page (no AppLayout) */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Public: landing page with AppLayout */}
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<IndexRedirect />} />
-        </Route>
+        {/* Public: landing page (standalone, owns its own .landing-nav header) */}
+        <Route path="/" element={<IndexRedirect />} />
 
         {/* Protected: workspace requires auth */}
         <Route element={<ProtectedRoute />}>

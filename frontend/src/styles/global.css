@@ -1130,3 +1130,285 @@ body {
     gap: 12px;
   }
 }
+
+/* ── Social proof ── */
+.stats-section {
+  padding: 80px 0 0;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  max-width: 960px;
+  margin: 0 auto 48px;
+}
+.stat-item {
+  text-align: center;
+  padding: 24px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.stat-number {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  font-feature-settings: "tnum";
+}
+.stat-number .stat-suffix {
+  color: var(--accent);
+  font-size: 24px;
+}
+.stat-label {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.logos-strip {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.logos-strip-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  letter-spacing: 0.04em;
+}
+.logos-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+.logo-pill {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  background: var(--bg-surface);
+}
+.testimonial {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.testimonial-quote {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+.testimonial-author {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ── Pricing billing note ── */
+.pricing-note {
+  max-width: 720px;
+  margin: 32px auto 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ── FAQ ── */
+.faq-section {
+  padding: 80px 0;
+}
+.faq-list {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: left;
+}
+.faq-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.faq-chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+}
+.faq-item.open .faq-chevron {
+  transform: rotate(180deg);
+}
+.faq-a {
+  padding: 0 22px 18px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 480px;
+  }
+}
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════
+   Landing Page — 能力 / 场景 / 工具类
+   (P2：从内联 style 收敛为 class；修复能力区·场景区网格失效)
+   ═══════════════════════════════════════ */
+.muted-text {
+  color: var(--text-secondary);
+}
+
+/* 区块标题统一下间距，替代散落的内联 marginBottom */
+.section-heading {
+  margin-bottom: 48px;
+}
+.section-heading--sm {
+  margin-bottom: 40px;
+}
+
+/* ── 核心能力 ── */
+.caps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  text-align: left;
+  max-width: 960px;
+  margin: 0 auto 80px;
+}
+.cap-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: left;
+  transition: border-color 0.2s ease;
+}
+.cap-card:hover {
+  border-color: var(--accent);
+}
+.cap-card .card-icon {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+.cap-card > div:not(.card-icon) {
+  flex: 1;
+  min-width: 0;
+}
+.cap-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+.cap-card .muted-text {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ── 适用场景 ── */
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: 640px;
+  margin: 0 auto 80px;
+}
+.template-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: left;
+  transition: border-color 0.2s ease;
+}
+.template-card:hover {
+  border-color: var(--accent);
+}
+.template-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.template-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--accent);
+}
+.template-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+.template-card .muted-text {
+  font-size: 12px;
+}
+
+/* 占满宽度的块级按钮（定价卡 CTA） */
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* 企业定制方案的次级价格标签 */
+.pricing-price-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+/* ── 响应式：能力区 / 场景区 ── */
+@media (max-width: 900px) {
+  .caps-grid {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+  }
+  .templates-grid {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+  }
+}
+@media (max-width: 480px) {
+  .section-heading,
+  .section-heading--sm {
+    margin-bottom: 32px;
+  }
+}
