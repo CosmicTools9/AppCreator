@@ -426,15 +426,14 @@ pub async fn list_sessions_handler(
     pool: web::Data<PgPool>,
     query: web::Query<ListSessionsQuery>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
 
-    let ns = crate::middleware::extract_namespace(&req);
-    match list_sessions(
+    match list_user_sessions(
         pool.get_ref(),
-        if ns.is_empty() { None } else { Some(&ns) },
+        user.user_id,
         query.limit.unwrap_or(20),
     )
     .await
@@ -480,7 +479,7 @@ pub async fn create_session_handler(
         title
     };
 
-    match create_session(pool.get_ref(), title, body.app_instance_id, &namespace).await {
+    match create_session_with_owner(pool.get_ref(), title, body.app_instance_id, &namespace, user.user_id).await {
         Ok(row) => {
             let mut ctx =
                 ConversationContext::new(row.id, user.username.clone(), namespace.to_string());
@@ -500,13 +499,19 @@ pub async fn get_session_handler(
     pool: web::Data<PgPool>,
     path: web::Path<i64>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
 
     let session_id = path.into_inner();
+
+    // Verify session ownership
+    if let Some(resp) = check_session_owner(pool.get_ref(), session_id, user.user_id).await {
+        return resp;
+    }
     match get_session(pool.get_ref(), session_id).await {
+
         Ok(Some(row)) => match list_messages(pool.get_ref(), session_id).await {
             Ok(msgs) => HttpResponse::Ok().json(ApiResponse::success(row_to_session(row, msgs))),
             Err(e) => {
@@ -526,12 +531,18 @@ pub async fn add_message_handler(
     path: web::Path<i64>,
     body: web::Json<AddMessageRequest>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
 
     let session_id = path.into_inner();
+
+    // Verify session ownership
+    if let Some(resp) = check_session_owner(pool.get_ref(), session_id, user.user_id).await {
+        return resp;
+    }
+
     let content = body.content.trim().to_string();
     if content.is_empty() {
         return HttpResponse::BadRequest()
@@ -552,14 +563,19 @@ pub async fn generate_response_handler(
     llm: web::Data<llm::LlmService>,
     path: web::Path<i64>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
 
     let session_id = path.into_inner();
-    let pool: Arc<PgPool> = pool.into_inner();
 
+    // Verify session ownership before claiming
+    if let Some(resp) = check_session_owner(pool.as_ref(), session_id, user.user_id).await {
+        return resp;
+    }
+
+    let pool: Arc<PgPool> = pool.into_inner();
     let mut ctx = match load_agent_context(pool.as_ref(), session_id).await {
         Ok(Some(ctx)) => ctx,
         Ok(None) => {
@@ -639,12 +655,18 @@ pub async fn interrupt_handler(
     pool: web::Data<PgPool>,
     path: web::Path<i64>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
 
     let session_id = path.into_inner();
+
+    // Verify session ownership
+    if let Some(resp) = check_session_owner(pool.get_ref(), session_id, user.user_id).await {
+        return resp;
+    }
+
     let mut ctx = match load_agent_context(pool.get_ref(), session_id).await {
         Ok(Some(ctx)) => ctx,
         Ok(None) => {
@@ -680,12 +702,18 @@ pub async fn reset_state_handler(
     path: web::Path<i64>,
     body: web::Json<ResetStateRequest>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
 
     let session_id = path.into_inner();
+
+    // Verify session ownership
+    if let Some(resp) = check_session_owner(pool.get_ref(), session_id, user.user_id).await {
+        return resp;
+    }
+
     let mut ctx = match load_agent_context(pool.get_ref(), session_id).await {
         Ok(Some(ctx)) => ctx,
         Ok(None) => {
@@ -752,15 +780,20 @@ pub async fn progress_handler(
     pool: web::Data<PgPool>,
     path: web::Path<i64>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
     let session_id = path.into_inner();
 
-    let (tx, rx) = progress_channel(4);
+    // Verify session ownership
+    if let Some(resp) = check_session_owner(pool.get_ref(), session_id, user.user_id).await {
+        return resp;
+    }
 
+    let (tx, rx) = progress_channel(4);
     let pool = pool.get_ref().clone();
+
     tokio::spawn(async move {
         match get_session(&pool, session_id).await {
             Ok(Some(session)) => {
@@ -843,7 +876,7 @@ pub async fn create_app_handler(
         ));
     }
 
-    match create_session(pool.get_ref(), name, None, &namespace).await {
+    match create_session_with_owner(pool.get_ref(), name, None, &namespace, user.user_id).await {
         Ok(row) => {
             let mut ctx =
                 ConversationContext::new(row.id, user.username.clone(), namespace.to_string());
@@ -869,9 +902,6 @@ pub async fn create_app_handler(
         }
     }
 }
-/// 解析 prototype.html 路径（防路径穿越）。
-///
-/// 坐标来自 LLM 产物（ConversationContext.namespace/app_name），
 /// 必须限制为单段目录名，拒绝 `..`、`/`、`\` 及隐藏段。
 /// 根目录优先取 `APPCREATOR_PROJECT_ROOT` 环境变量，否则回退到进程 CWD。
 fn resolve_prototype_path(ctx: &ConversationContext) -> Result<std::path::PathBuf, HttpResponse> {
@@ -914,17 +944,21 @@ fn resolve_prototype_path(ctx: &ConversationContext) -> Result<std::path::PathBu
 /// 预览原型产物：GET /sessions/{id}/prototype
 ///
 /// 从 ConversationContext 解析 app 坐标（namespace + app_name），
-/// 返回 Pre-Proc/{namespace}/Apps/{app_name}/prototype.html（text/html）。
 pub async fn prototype_handler(
     req: HttpRequest,
     pool: web::Data<PgPool>,
     path: web::Path<i64>,
 ) -> HttpResponse {
-    let _user = match require_auth(&req) {
+    let user = match require_auth(&req) {
         Ok(u) => u,
         Err(r) => return r,
     };
     let session_id = path.into_inner();
+
+    // Verify session ownership
+    if let Some(resp) = check_session_owner(pool.get_ref(), session_id, user.user_id).await {
+        return resp;
+    }
 
     let ctx = match load_agent_context(pool.get_ref(), session_id).await {
         Ok(Some(ctx)) => ctx,
@@ -942,21 +976,16 @@ pub async fn prototype_handler(
         Err(resp) => return resp,
     };
 
-    match std::fs::read_to_string(&proto_path) {
+    match tokio::fs::read_to_string(&proto_path).await {
         Ok(html) => HttpResponse::Ok()
-            .content_type("text/html; charset=utf-8")
+            .insert_header(("content-type", "text/html; charset=utf-8"))
             .body(html),
-        Err(_) => HttpResponse::NotFound().json(error_response(
-            "PROTOTYPE_NOT_FOUND",
-            format!(
-                "prototype.html not found for app '{}/{}'",
-                ctx.namespace.as_deref().unwrap_or("?"),
-                ctx.app_name.as_deref().unwrap_or("?")
-            ),
-        )),
+        Err(e) => {
+            log::error!("Failed to read prototype {}: {e}", proto_path.display());
+            HttpResponse::InternalServerError().json(error_response("FILE_ERROR", e.to_string()))
+        }
     }
 }
-
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/sessions")

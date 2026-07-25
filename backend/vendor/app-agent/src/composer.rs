@@ -1232,31 +1232,6 @@ pub async fn write_service_backend(
         .map_err(|e| ComposerError::Validation(e))
 }
 
-fn push_model(out: &mut String, name: &str, table: &str) {
-    use std::fmt::Write;
-    let _ = writeln!(out, "#[derive(Debug, Clone, Serialize, Deserialize)]");
-    let _ = writeln!(out, "pub struct {name} {{");
-    let _ = writeln!(out, "    pub id: i64,");
-    let _ = writeln!(out, "    pub notice: Option<String>,");
-    let _ = writeln!(out, "}}");
-    let _ = writeln!(out);
-    let _ = writeln!(out, "impl Identifiable for {name} {{");
-    let _ = writeln!(out, "    fn id(&self) -> i64 {{ self.id }}");
-    let _ = writeln!(out, "}}");
-    let _ = writeln!(out);
-    let _ = writeln!(out, "impl AliothDbEntity for {name} {{");
-    let _ = writeln!(
-        out,
-        "    fn table_name() -> &\'static str {{ r#\"{}\"# }}",
-        table
-    );
-    let _ = writeln!(out, "    const SELECT_FIELDS: &\'static str = r#\"id, notice, created_at, updated_at, deleted_at\"#;");
-    let _ = writeln!(out, "    const ENTITY_NAME: &\'static str = \"{name}\";");
-    let _ = writeln!(out, "    const SOFT_DELETE: bool = true;");
-    let _ = writeln!(out, "    const HAS_AUDIT: bool = false;");
-    let _ = writeln!(out, "}}");
-    let _ = writeln!(out);
-}
 
 #[cfg(test)]
 mod tests {

@@ -424,7 +424,7 @@ dependencies = [
  "actix-web",
  "app-agent",
  "async-trait",
- @theirs
+ "base64",
  "chrono",
  "common",
  "env_logger",

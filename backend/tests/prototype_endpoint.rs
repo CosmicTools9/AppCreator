@@ -55,9 +55,12 @@ async fn prototype_endpoint_serves_real_artifact() {
     app_creator::auth_config::init_auth_config();
 
     let pool = connect_test_db().await;
-    let session = chat::create_session(&pool, "prototype e2e", None, "Cosmic-Tools")
+    chat::ensure_app_creator_tables(&pool)
         .await
-        .expect("create_session failed");
+        .expect("ensure_app_creator_tables failed");
+    let session = chat::create_session_with_owner(&pool, "prototype e2e", None, "Cosmic-Tools", 1)
+        .await
+        .expect("create_session_with_owner failed");
     let mut ctx = app_agent::ConversationContext::new(
         session.id,
         "e2e".to_string(),
@@ -99,11 +102,9 @@ async fn prototype_endpoint_serves_real_artifact() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 401);
-
-    // 3. 未组合 session（无 app_name）→ 404
-    let session2 = chat::create_session(&pool, "prototype e2e not-ready", None, "Cosmic-Tools")
+    let session2 = chat::create_session_with_owner(&pool, "prototype e2e not-ready", None, "Cosmic-Tools", 1)
         .await
-        .expect("create_session failed");
+        .expect("create_session_with_owner failed");
     let ctx2 = app_agent::ConversationContext::new(
         session2.id,
         "e2e".to_string(),
