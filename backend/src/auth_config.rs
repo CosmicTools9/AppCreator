@@ -78,14 +78,33 @@ pub fn auth_config() -> &'static AuthConfig {
         .expect("AuthConfig not initialized — call init_auth_config() in main")
 }
 
+/// Extract raw EC public key (65-byte uncompressed point) from a PKCS#8 private key PEM.
+/// The public key is the last 65 bytes of the DER-encoded PKCS#8 structure for P-256 keys.
+fn extract_ec_public_key_der(private_pem: &str) -> Vec<u8> {
+    // Decode base64 body (between header and footer)
+    let body: String = private_pem
+        .lines()
+        .filter(|l| !l.starts_with("-----"))
+        .collect();
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let der = STANDARD
+        .decode(body.trim())
+        .expect("Failed to decode PEM base64");
+    // The EC public key (0x04 || x || y, 65 bytes) is always the last 65 bytes of PKCS#8 DER
+    assert!(der.len() >= 65, "PKCS#8 DER too short");
+    let public_key = der[der.len() - 65..].to_vec();
+    assert_eq!(public_key[0], 0x04, "Public key must start with 0x04");
+    public_key
+}
+
 /// 载入或使用嵌入式开发密钥（生产环境必须配置 APP_CREATOR_JWT_PRIVATE_KEY）
 fn load_or_generate_standalone_keys() -> (DecodingKey, EncodingKey) {
     if let Ok(pem) = std::env::var("APP_CREATOR_JWT_PRIVATE_KEY") {
         if !pem.is_empty() && !pem.starts_with("enc:") {
             let encoding_key = EncodingKey::from_ec_pem(pem.as_bytes())
                 .expect("APP_CREATOR_JWT_PRIVATE_KEY is not a valid EC P-256 private key PEM");
-            let decoding_key = DecodingKey::from_ec_pem(pem.as_bytes())
-                .expect("APP_CREATOR_JWT_PRIVATE_KEY cannot derive public key");
+            let public_der = extract_ec_public_key_der(&pem);
+            let decoding_key = DecodingKey::from_ec_der(&public_der);
             log::info!("Loaded standalone ES256 key from APP_CREATOR_JWT_PRIVATE_KEY");
             return (decoding_key, encoding_key);
         }
@@ -98,8 +117,8 @@ fn load_or_generate_standalone_keys() -> (DecodingKey, EncodingKey) {
 
     let encoding_key = EncodingKey::from_ec_pem(DEV_PRIVATE_KEY.as_bytes())
         .expect("Embedded DEV_PRIVATE_KEY is invalid");
-    let decoding_key = DecodingKey::from_ec_pem(DEV_PRIVATE_KEY.as_bytes())
-        .expect("Embedded DEV_PRIVATE_KEY cannot derive public key");
+    let decoding_key = DecodingKey::from_ec_pem(DEV_PUBLIC_KEY.as_bytes())
+        .expect("Embedded DEV_PUBLIC_KEY is invalid");
     (decoding_key, encoding_key)
 }
 
@@ -111,3 +130,9 @@ MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgvTkNZwK8WqNH/aEn
 rUkSD5+lYAesakhvTFcWpKteHbOhRANCAASmyJF5MqiJ0MkA77TZJkGAdqiqhv26
 IVcpjkHR5sxTZhZ5eH/SSSV/ddphVgahp0cRM9H4HSgzNMIkDNv5dJuN
 -----END PRIVATE KEY-----";
+// 嵌入式开发 ES256 公钥（从 DEV_PRIVATE_KEY 派生）——永不上线、仅供本地开发
+// 生产环境必须配置 APP_CREATOR_JWT_PRIVATE_KEY
+const DEV_PUBLIC_KEY: &str = "-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpsiReTKoidDJAO+02SZBgHaoqob9
+uiFXKY5B0ebMU2YWeXh/0kklf3XaYVYGoadHETPR+B0oMzTCJAzb+XSbjQ==
+-----END PUBLIC KEY-----";
