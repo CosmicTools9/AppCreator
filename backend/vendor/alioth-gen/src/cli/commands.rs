@@ -349,8 +349,9 @@ pub struct PublishArgs {
     #[arg(short, long, value_name = "VERSION")]
     pub version: String,
 
+    /// Change description text
     #[arg(short, long, value_name = "TEXT")]
-pub : Option<String>,
+    pub change_description: Option<String>,
 
     /// Path to the module artifact (tarball or zip)
     #[arg(short, long, value_name = "FILE")]

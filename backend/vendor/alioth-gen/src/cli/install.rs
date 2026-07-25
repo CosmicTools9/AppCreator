@@ -35,7 +35,7 @@ pub struct VersionResponse {
     pub id: i64,
     pub module_id: i64,
     pub version: String,
-pub : Option<String>,
+    pub change_description: Option<String>,
     pub metadata: Option<serde_json::Value>,
     pub is_stable: bool,
     pub downloads: i64,
