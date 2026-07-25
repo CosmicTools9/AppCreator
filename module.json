@@ -7,7 +7,7 @@
   "routePrefix": "/app-creator",
   "icon": "Cpu",
   "hasBackend": true,
-  "hasFrontend": false,
+  "hasFrontend": true,
   "version": "0.1.0",
   "dependencies": ["meta"],
   "selectable": true,
@@ -19,6 +19,6 @@
       "releasedAt": "2026-07-19"
     }
   ],
-  "description": "AppCreator 独立服务 — Docker 打包与端到端测试",
-  "prototypeVersion": "v0"
+  "description": "AppCreator 独立服务 — 对话创建企业应用",
+  "prototypeVersion": "v1"
 }

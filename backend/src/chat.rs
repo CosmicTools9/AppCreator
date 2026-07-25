@@ -275,13 +275,109 @@ pub async fn update_session_status(
     status: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
-        "UPDATE isahl_meta.meta_chat_sessions SET status = $1, updated_at = NOW() WHERE id = $2",
+        "UPDATE isahl_meta.meta_chat_sessions SET status = $1::isahl_meta.chat_session_status, updated_at = NOW() WHERE id = $2",
     )
     .bind(status)
     .bind(session_id)
     .execute(pool)
     .await?;
     Ok(())
+}
+
+pub async fn claim_session_for_generation(
+    pool: &PgPool,
+    session_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE isahl_meta.meta_chat_sessions \
+         SET status = 'generating' \
+         WHERE id = $1 AND status IN ('app_creating', 'active')",
+    )
+    .bind(session_id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Ensure required enum values exist at startup (idempotent via ADD VALUE IF NOT EXISTS).
+pub async fn ensure_chat_session_status_values(pool: &PgPool) -> Result<(), sqlx::Error> {
+    for ddl in [
+        "ALTER TYPE isahl_meta.chat_session_status ADD VALUE IF NOT EXISTS 'app_creating'",
+        "ALTER TYPE isahl_meta.chat_session_status ADD VALUE IF NOT EXISTS 'generating'",
+    ] {
+        sqlx::query(ddl).execute(pool).await?;
+    }
+    Ok(())
+}
+
+/// Create AppCreator-specific tables at startup (idempotent).
+pub async fn ensure_app_creator_tables(pool: &PgPool) -> Result<(), sqlx::Error> {
+    for ddl in [
+        "CREATE SCHEMA IF NOT EXISTS app_creator",
+        "CREATE TABLE IF NOT EXISTS app_creator.refresh_tokens (
+            id bigserial PRIMARY KEY, user_id bigint NOT NULL,
+            token_hash text NOT NULL UNIQUE, expires_at timestamptz NOT NULL,
+            revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON app_creator.refresh_tokens (user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON app_creator.refresh_tokens (expires_at)",
+        "CREATE TABLE IF NOT EXISTS app_creator.session_owners (
+            session_id bigint NOT NULL PRIMARY KEY, user_id bigint NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now()
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_session_owners_user ON app_creator.session_owners (user_id)",
+    ] {
+        sqlx::query(ddl).execute(pool).await?;
+    }
+    Ok(())
+}
+
+/// Create a session with owner record in one transaction.
+pub async fn create_session_with_owner(
+    pool: &PgPool, title: &str, app_instance_id: Option<i64>,
+    namespace: &str, user_id: i64,
+) -> Result<ChatSessionRow, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let row = sqlx::query_as::<_, ChatSessionRow>(
+        "INSERT INTO isahl_meta.meta_chat_sessions (title, app_instance_id, namespace, status) \
+         VALUES ($1, $2, $3, 'active') \
+         RETURNING id, title, app_instance_id, namespace, status::text AS \"status\", created_at, updated_at",
+    )
+    .bind(title).bind(app_instance_id).bind(namespace)
+    .fetch_one(&mut *tx).await?;
+    sqlx::query("INSERT INTO app_creator.session_owners (session_id, user_id) VALUES ($1, $2)")
+        .bind(row.id).bind(user_id).execute(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+/// Check session ownership — returns 403 response if not owned, None if passes.
+pub async fn check_session_owner(pool: &PgPool, session_id: i64, user_id: i64) -> Option<HttpResponse> {
+    let is_owner = match sqlx::query_scalar::<_, i64>(
+        "SELECT 1::bigint FROM app_creator.session_owners WHERE session_id = $1 AND user_id = $2",
+    ).bind(session_id).bind(user_id).fetch_optional(pool).await {
+        Ok(r) => r.is_some(),
+        Err(e) => {
+            log::error!("check_session_owner query failed: {e}");
+            return Some(HttpResponse::InternalServerError().json(error_response("DB_ERROR", e.to_string())));
+        }
+    };
+    if !is_owner {
+        return Some(HttpResponse::Forbidden().json(error_response("FORBIDDEN", "Session does not belong to this user")));
+    }
+    None
+}
+
+/// List sessions owned by a specific user (JOIN with session_owners).
+pub async fn list_user_sessions(pool: &PgPool, user_id: i64, limit: i64) -> Result<Vec<ChatSessionRow>, sqlx::Error> {
+    sqlx::query_as::<_, ChatSessionRow>(
+        "SELECT s.id, s.title, s.app_instance_id, s.namespace, s.status::text AS \"status\", \
+                s.created_at, s.updated_at \
+         FROM isahl_meta.meta_chat_sessions s \
+         INNER JOIN app_creator.session_owners o ON s.id = o.session_id \
+         WHERE s.deleted_at IS NULL AND o.user_id = $1 \
+         ORDER BY s.updated_at DESC LIMIT $2",
+    ).bind(user_id).bind(limit.clamp(1, 100)).fetch_all(pool).await
 }
 
 // ── Response helpers ───────────────────────────────────

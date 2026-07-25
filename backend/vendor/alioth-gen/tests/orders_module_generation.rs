@@ -126,7 +126,7 @@ fn create_orders_module() -> MetaModule {
         equivalent_classes: vec![],
         disjoint_classes: vec![],
         is_abstract: false,
-            table_name: None,
+        table_name: None,
         state_machine: MetaStateMachine {
             enabled: true,
             states: vec![
@@ -270,7 +270,7 @@ fn create_orders_module() -> MetaModule {
         equivalent_classes: vec![],
         disjoint_classes: vec![],
         is_abstract: false,
-            table_name: None,
+        table_name: None,
         state_machine: Default::default(),
         transitions: vec![],
         lifecycle_hooks: vec![],

@@ -136,4 +136,10 @@ export const api = {
     }
     return res.text();
   },
+
+  interrupt: (id: number, opts: ApiOptions) =>
+    request<{ status: string }>(`/sessions/${id}/interrupt`, {
+      method: "POST",
+      ...opts,
+    }),
 };

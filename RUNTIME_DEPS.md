@@ -30,6 +30,7 @@ and the following vendored crates under `backend/vendor/`:
 | `alioth-gen` | `Meta/backend/alioth-gen` | `app-agent` IR / Visualizer (CLI codegen **not** supported) |
 | `ontology-mapping` | `Meta/backend/ontology-mapping` | transitive via `app-agent` |
 | `app-agent` | `Meta/backend/app-agent` | core AppAgent orchestrator, state machine, skills |
+| `ontology-gen-bridge` | `Meta/backend/ontology-gen-bridge` | transitive via `app-agent` |
 
 ## Not yet vendored
 

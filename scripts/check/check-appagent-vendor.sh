@@ -16,6 +16,7 @@ EXPECTED=(
   "meta-model"
   "alioth-gen"
   "ontology-mapping"
+  "ontology-gen-bridge"
 )
 
 echo "=== Checking vendored crates ==="

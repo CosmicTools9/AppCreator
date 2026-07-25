@@ -23,6 +23,7 @@ fn make_token() -> String {
         exp: i64,
         iat: i64,
         iss: String,
+        namespace: String,
     }
     let now = chrono::Utc::now().timestamp();
     let claims = Claims {
@@ -31,6 +32,7 @@ fn make_token() -> String {
         exp: now + 600,
         iat: now,
         iss: "alioth-sso".to_string(),
+        namespace: "Cosmic-Tools".to_string(),
     };
     encode(
         &Header::new(Algorithm::ES256),
@@ -39,8 +41,6 @@ fn make_token() -> String {
     )
     .unwrap()
 }
-
-/// 指向项目根（CARGO_MANIFEST_DIR = AppCreator/backend，上两级即项目根）。
 fn project_root() -> String {
     format!("{}/../..", env!("CARGO_MANIFEST_DIR"))
 }

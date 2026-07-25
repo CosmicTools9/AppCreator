@@ -1,7 +1,0 @@
-
-running 2 tests
-test docker::tests::test_compose_references_gateway_image ... ok
-test docker::tests::test_lock_manifest ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-

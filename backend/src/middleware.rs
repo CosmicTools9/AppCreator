@@ -156,6 +156,15 @@ where
 
             match verify_token(&token, &key, &mode) {
                 Ok(claims) => {
+                    // SSO mode: reject if namespace claim is missing or empty
+                    if matches!(&mode, auth_config::AuthMode::Sso) && claims.namespace.trim().is_empty() {
+                        let response = HttpResponse::Forbidden().json(serde_json::json!({
+                            "error": "no_namespace",
+                            "message": "SSO JWT must include a namespace claim"
+                        }));
+                        return Ok(req.into_response(response).map_into_right_body());
+                    }
+
                     let (ctx, ns) = match &mode {
                         auth_config::AuthMode::Sso => {
                             let username = claims
@@ -170,7 +179,7 @@ where
                                 username,
                                 claims.is_superuser,
                             );
-                            (ctx, String::new())
+                            (ctx, claims.namespace.trim().to_owned())
                         }
                         auth_config::AuthMode::Standalone => {
                             let ctx = RequestContext::with_username(

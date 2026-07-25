@@ -1416,10 +1416,8 @@ User intent: {intent}
                     if let Some(arr) = tc_args.get_mut("args").and_then(|v| v.as_array_mut()) {
                         for item in arr.iter_mut() {
                             if let Some(s) = item.as_str() {
-                                *item = serde_json::Value::String(Self::resolve_templates(
-                                    s,
-                                    &context,
-                                ));
+                                *item =
+                                    serde_json::Value::String(Self::resolve_templates(s, &context));
                             }
                         }
                     }
@@ -1473,9 +1471,10 @@ User intent: {intent}
                         ExecutionEvent::ToolCall {
                             tool: tc_name.clone(),
                             success: exec.success,
-                            detail: exec.error.clone().or_else(|| {
-                                exec.data.as_ref().map(|_| "ok".to_string())
-                            }),
+                            detail: exec
+                                .error
+                                .clone()
+                                .or_else(|| exec.data.as_ref().map(|_| "ok".to_string())),
                         },
                     );
                 }
@@ -3699,7 +3698,10 @@ User intent: {intent}
 pub fn state_name(state: &AgentState) -> &'static str {
     match state {
         AgentState::Initializing => "初始化",
-        AgentState::Planning { needs_clarification: Some(_), .. } => "澄清问题",
+        AgentState::Planning {
+            needs_clarification: Some(_),
+            ..
+        } => "澄清问题",
         AgentState::Planning { .. } => "分析需求",
         AgentState::Extending => "生成后端配置",
         AgentState::Generating => "生成配置(已合并)",
@@ -3725,7 +3727,10 @@ pub fn state_name(state: &AgentState) -> &'static str {
 pub fn progress_percent(state: &AgentState) -> u8 {
     match state {
         AgentState::Initializing => 5,
-        AgentState::Planning { needs_clarification: Some(_), .. } => 10,
+        AgentState::Planning {
+            needs_clarification: Some(_),
+            ..
+        } => 10,
         AgentState::Planning { .. } => 15,
         AgentState::Extending => 25,
         AgentState::Generating => 30,

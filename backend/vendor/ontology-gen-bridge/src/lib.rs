@@ -30,7 +30,11 @@ pub fn generate_service(
         fs::write(&target, &file.content)?;
         println!("  wrote {}", target.display());
     }
-    println!("Generated {} files to {}", generated.files.len(), output_dir.display());
+    println!(
+        "Generated {} files to {}",
+        generated.files.len(),
+        output_dir.display()
+    );
     Ok(())
 }
 

@@ -129,26 +129,22 @@ impl MockLlmService {
 
 /// 解析 system prompt 中的技能名与步骤 ID。
 fn parse_skill_step(system: &str) -> Option<(String, String)> {
-    let name = system
-        .find("技能：")
-        .and_then(|i| {
-            let rest = &system[i + "技能：".len()..];
-            rest.lines().next().map(|l| l.trim().to_string())
-        })?;
-    let step = system
-        .find("步骤 ")
-        .and_then(|i| {
-            let rest = &system[i + "步骤 ".len()..];
-            let end = rest
-                .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-                .unwrap_or(rest.len());
-            let s = rest[..end].trim().to_string();
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
-        })?;
+    let name = system.find("技能：").and_then(|i| {
+        let rest = &system[i + "技能：".len()..];
+        rest.lines().next().map(|l| l.trim().to_string())
+    })?;
+    let step = system.find("步骤 ").and_then(|i| {
+        let rest = &system[i + "步骤 ".len()..];
+        let end = rest
+            .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+            .unwrap_or(rest.len());
+        let s = rest[..end].trim().to_string();
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
+    })?;
     Some((name, step))
 }
 

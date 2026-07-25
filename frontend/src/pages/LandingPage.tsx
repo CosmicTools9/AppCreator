@@ -106,7 +106,7 @@ export function LandingPage() {
         { token }
       );
       setSessionId(res.session.id);
-      navigate("/workspace");
+      navigate("/workspace", { state: { sessionId: res.session.id } });
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : "创建失败");
     } finally {
@@ -345,7 +345,7 @@ export function LandingPage() {
         {/* FAQ */}
         <section className="faq-section">
           <div className="section-label">—— 常见问题</div>
-          <h2 className="text-h1 section-heading--sm">关于定价与部署，你可能想问</h2>
+          <h2 className="text-h1 section-heading-sm">关于定价与部署，你可能想问</h2>
           <div className="faq-list">
             {FAQS.map((f) => (
               <FaqItem key={f.q} q={f.q} a={f.a} />

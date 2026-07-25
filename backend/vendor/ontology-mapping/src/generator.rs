@@ -72,11 +72,8 @@ impl CodeGenerator {
                 cols.push((Self::safe_field_name(&f.json_path), col.clone()));
             }
         }
-        let data_cols: Vec<(String, String)> = cols
-            .iter()
-            .filter(|(_, c)| c != "id")
-            .cloned()
-            .collect();
+        let data_cols: Vec<(String, String)> =
+            cols.iter().filter(|(_, c)| c != "id").cloned().collect();
         let select_list = cols
             .iter()
             .map(|(rf, dc)| format!("\"{}\" AS \"{}\"", dc, rf.trim_start_matches("r#")))
@@ -118,7 +115,9 @@ impl CodeGenerator {
         for (rf, _) in &data_cols {
             out.push_str(&format!("        .bind(input.{})\n", rf));
         }
-        out.push_str("        .fetch_one(&self.pool)\n        .await?;\n        Ok(row)\n    }\n\n");
+        out.push_str(
+            "        .fetch_one(&self.pool)\n        .await?;\n        Ok(row)\n    }\n\n",
+        );
 
         // update
         out.push_str(&format!(

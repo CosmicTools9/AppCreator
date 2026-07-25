@@ -60,6 +60,19 @@ pub fn init_auth_config() {
             log::info!("Auth mode: SSO (SSO_JWT_PUBLIC_KEY configured)");
         }
         None => {
+            let has_env_key = std::env::var("APP_CREATOR_JWT_PRIVATE_KEY")
+                .ok()
+                .filter(|k| !k.is_empty() && !k.starts_with("enc:"))
+                .is_some();
+
+            if !has_env_key {
+                let env = std::env::var("ENV").unwrap_or_default();
+                if env == "production" {
+                    panic!("ENV=production requires APP_CREATOR_JWT_PRIVATE_KEY to be set (embedded DEV key not allowed)");
+                }
+                log::warn!("No APP_CREATOR_JWT_PRIVATE_KEY — using embedded DEV key (DO NOT use in production)");
+            }
+
             let (decoding_key, encoding_key) = load_or_generate_standalone_keys();
             let _ = CONFIG.set(AuthConfig {
                 mode: AuthMode::Standalone,

@@ -61,4 +61,11 @@ fi
 # reset-db.sh reads DATABASE_URL and applies Backup/latest/schema.sql (INIT mode).
 DATABASE_URL="$DATABASE_URL" bash "$RESET_DB_SCRIPT" ${ARGS[@]+"${ARGS[@]}"}
 
+
+# Apply AppCreator-specific DDL (powered, all CREATE IF NOT EXISTS)
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+for f in "$SCRIPT_DIR/backend/ddl"/*.sql; do
+  echo "  Applying $(basename "$f")..."
+  psql "$DATABASE_URL" -q -f "$f" 2>&1 | grep -v "already exists\|NOTICE:"
+done
 echo "=== Schema initialization complete ==="

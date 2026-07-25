@@ -15,13 +15,10 @@ tokio = { version = "1", features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 yaml_serde = { workspace = true }
-thiserror = { workspace = true }
 chrono = { workspace = true }
 sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "chrono", "macros", "json"] }
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
-base64 = { workspace = true }
-
-bcrypt = "0.19"
+ @theirs
 env_logger = "0.11"
 log = "0.4"
 actix-files = "0.6"

@@ -23,6 +23,14 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to connect to database");
     let pool_data: web::Data<sqlx::PgPool> = web::Data::new(pool);
 
+    // Auto-patch: ensure required enum values + AppCreator tables at startup
+    chat::ensure_chat_session_status_values(pool_data.as_ref())
+        .await
+        .expect("Failed to ensure chat_session_status enum values");
+    chat::ensure_app_creator_tables(pool_data.as_ref())
+        .await
+        .expect("Failed to create app_creator tables");
+
     // LLM service (required for AppAgent)
     let llm_config = llm::LlmServiceConfig::from_env();
     let llm_service = llm::LlmService::new(llm_config)
