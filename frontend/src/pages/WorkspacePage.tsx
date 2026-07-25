@@ -33,12 +33,13 @@ export function WorkspacePage() {
   const chatEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const interruptedRef = useRef(false);
-
-  const opts = { token };
-
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const optsRef = useRef({ token: tokenRef.current });
+  optsRef.current = { token: tokenRef.current };
   const refreshSessions = useCallback(async () => {
     try {
-      const res = await api.listSessions(null, opts);
+      const res = await api.listSessions(null, optsRef.current);
       setSessions(res.sessions ?? []);
     } catch {
       // list failure is non-blocking
@@ -76,7 +77,7 @@ export function WorkspacePage() {
 
   const loadSession = async (id: number): Promise<ChatSession | null> => {
     try {
-      const session = await api.getSession(id, opts);
+      const session = await api.getSession(id, optsRef.current);
       setSessionId(id);
       setMessages(session.messages ?? []);
       return session;
@@ -96,7 +97,7 @@ export function WorkspacePage() {
     for (let i = 0; i < 30; i++) {
       if (interruptedRef.current) break;
       try {
-        const step = await api.generateResponse(id, opts);
+        const step = await api.generateResponse(id, optsRef.current);
         setProgress({ state: step.state_after, percent: step.progress_percent });
         terminal = step.is_terminal;
         if (terminal) break;
@@ -122,7 +123,7 @@ export function WorkspacePage() {
     interruptedRef.current = true;
     if (sessionId) {
       try {
-        await api.interrupt(sessionId, opts);
+        await api.interrupt(sessionId, optsRef.current);
       } catch {
         // best-effort
       }
@@ -148,7 +149,7 @@ export function WorkspacePage() {
         setSessionId(id);
       }
 
-      await api.addMessage(id, { content: text, role: "user" }, opts);
+      await api.addMessage(id, { content: text, role: "user" }, optsRef.current);
       // Optimistic user message
       setMessages((prev) => [
         ...prev,
@@ -267,7 +268,7 @@ export function WorkspacePage() {
             <button className="btn btn-primary" style={{ padding: "6px 16px", fontSize: 13 }}
               onClick={async () => {
                 try {
-                  const html = await api.fetchPrototype(Number(prototypeUrl), opts);
+                  const html = await api.fetchPrototype(Number(prototypeUrl), optsRef.current);
                   const blob = new Blob([html], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank");
                 } catch (e) {

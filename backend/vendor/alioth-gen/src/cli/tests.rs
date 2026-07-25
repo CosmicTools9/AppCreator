@@ -446,7 +446,7 @@ mod tests {
         let args = PublishArgs {
             module_name: "test-module".to_string(),
             version: "1.0.0".to_string(),
-            changelog: None,
+: None,
             artifact_path: PathBuf::from("/path/to/artifact.tar.gz"),
             registry_url: "http://localhost:8091/".to_string(),
             stable: false,
@@ -459,7 +459,7 @@ mod tests {
         let args2 = PublishArgs {
             module_name: "test-module".to_string(),
             version: "1.0.0".to_string(),
-            changelog: None,
+: None,
             artifact_path: PathBuf::from("/path/to/artifact.tar.gz"),
             registry_url: "http://localhost:8091".to_string(),
             stable: false,
@@ -474,7 +474,7 @@ mod tests {
         let args = PublishArgs {
             module_name: "test-module".to_string(),
             version: "1.0.0".to_string(),
-            changelog: None,
+: None,
             artifact_path: PathBuf::from("/path/to/artifact.tar.gz"),
             registry_url: "http://localhost:8091".to_string(),
             stable: false,
@@ -488,7 +488,7 @@ mod tests {
         let args_no_metadata = PublishArgs {
             module_name: "test-module".to_string(),
             version: "1.0.0".to_string(),
-            changelog: None,
+: None,
             artifact_path: PathBuf::from("/path/to/artifact.tar.gz"),
             registry_url: "http://localhost:8091".to_string(),
             stable: false,
@@ -503,7 +503,7 @@ mod tests {
         let args = PublishArgs {
             module_name: "test-module".to_string(),
             version: "1.0.0".to_string(),
-            changelog: None,
+: None,
             artifact_path: PathBuf::from("/path/to/artifact.tar.gz"),
             registry_url: "http://localhost:8091".to_string(),
             stable: false,

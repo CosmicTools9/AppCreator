@@ -19,7 +19,8 @@ chrono = { workspace = true }
 sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "chrono", "macros", "json"] }
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 base64 = { workspace = true }
-
+sha2 = { workspace = true }
+ring = { workspace = true }
 env_logger = "0.11"
 log = "0.4"
 actix-files = "0.6"

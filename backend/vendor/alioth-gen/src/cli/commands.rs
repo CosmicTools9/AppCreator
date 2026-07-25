@@ -350,7 +350,7 @@ pub struct PublishArgs {
     pub version: String,
 
     #[arg(short, long, value_name = "TEXT")]
-    pub changelog: Option<String>,
+pub : Option<String>,
 
     /// Path to the module artifact (tarball or zip)
     #[arg(short, long, value_name = "FILE")]

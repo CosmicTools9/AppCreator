@@ -81,3 +81,21 @@ done
 
 AppCreator tracks AliothStudio `main` branch. `sync-framework.sh` is a
 best-effort developer tool (not a CI gate). No formal version lock.
+## Vendor drift (2026-07-25)
+
+`diff -rq` between vendored crates and main-repo source reveals:
+
+| Crate | Differing files |
+|---|---|
+| `app-agent` | 9 |
+| `alioth-gen` | 5 |
+| `common` | 1 |
+| `llm` | 3 |
+| `meta-common` | 0 (sync) |
+| `meta-model` | 2 |
+| `ontology-mapping` | 5 |
+| `runtime-contract` | 1 |
+| `runtime-engine` | 0 (sync) |
+| `ontology-gen-bridge` | 3 |
+
+**Decision (2026-07-25)**: Not all differences are drift — some reflect AppCreator-specific adaptations (e.g., mock paths, removed test dependencies). Before synchronizing, diff each crate manually and decide whether to port changes or keep vendored versions. See the plan in `.planning/appcreator-drift-diagnosis-2026-07-25.md §Ch8`.

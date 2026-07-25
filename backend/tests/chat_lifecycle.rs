@@ -143,3 +143,33 @@ async fn app_agent_single_step_with_mock_llm() {
         result.err()
     );
 }
+#[tokio::test]
+async fn claim_session_sequential() {
+    let pool = connect_test_db().await;
+    chat::ensure_app_creator_tables(&pool).await.unwrap();
+    chat::ensure_chat_session_status_values(&pool).await.unwrap();
+    let session = chat::create_session(&pool, "Claim test", None, "Alioth")
+        .await.expect("create_session failed");
+    assert!(chat::claim_session_for_generation(&pool, session.id).await.unwrap());
+    assert!(!chat::claim_session_for_generation(&pool, session.id).await.unwrap());
+    chat::update_session_status(&pool, session.id, "active").await.unwrap();
+}
+
+#[tokio::test]
+async fn owner_check_denies_ownerless() {
+    let pool = connect_test_db().await;
+    chat::ensure_app_creator_tables(&pool).await.unwrap();
+    let session = chat::create_session(&pool, "Owner test", None, "Alioth")
+        .await.expect("create_session failed");
+    assert!(chat::check_session_owner(&pool, session.id, 1).await.is_some());
+}
+
+#[tokio::test]
+async fn owner_check_allows_exact() {
+    let pool = connect_test_db().await;
+    chat::ensure_app_creator_tables(&pool).await.unwrap();
+    let session = chat::create_session_with_owner(&pool, "Owner test", None, "Alioth", 42)
+        .await.expect("create_session_with_owner failed");
+    assert!(chat::check_session_owner(&pool, session.id, 42).await.is_none());
+    assert!(chat::check_session_owner(&pool, session.id, 1).await.is_some());
+}

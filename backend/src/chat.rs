@@ -380,6 +380,46 @@ pub async fn list_user_sessions(pool: &PgPool, user_id: i64, limit: i64) -> Resu
     ).bind(user_id).bind(limit.clamp(1, 100)).fetch_all(pool).await
 }
 
+/// Generate a random refresh token, store its SHA256 hash, return the raw token string.
+pub async fn issue_refresh_token(pool: &PgPool, user_id: i64) -> Result<String, sqlx::Error> {
+    use ring::rand::{SecureRandom, SystemRandom};
+    use sha2::Digest;
+    use base64::Engine;
+    let mut bytes = [0u8; 32];
+    SystemRandom::new().fill(&mut bytes).map_err(|e| {
+        sqlx::Error::Protocol(format!("RNG failure: {e}"))
+    })?;
+    let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes);
+    let hash = sha2::Sha256::digest(raw.as_bytes());
+    let hash_hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    sqlx::query(
+        "INSERT INTO app_creator.refresh_tokens (user_id, token_hash, expires_at) \
+         VALUES ($1, $2, NOW() + INTERVAL '30 days')",
+    )
+    .bind(user_id)
+    .bind(&hash_hex)
+    .execute(pool)
+    .await?;
+    Ok(raw)
+}
+
+pub async fn consume_refresh_token(pool: &PgPool, raw_token: &str) -> Result<Option<i64>, sqlx::Error> {
+    use sha2::Digest;
+    let hash = sha2::Sha256::digest(raw_token.as_bytes());
+    let hash_hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    let mut tx = pool.begin().await?;
+    let user_id = sqlx::query_scalar::<_, i64>(
+        "UPDATE app_creator.refresh_tokens \
+         SET revoked_at = NOW() \
+         WHERE token_hash = $1 AND expires_at > NOW() AND revoked_at IS NULL \
+         RETURNING user_id",
+    )
+    .bind(&hash_hex)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(user_id)
+}
 // ── Response helpers ───────────────────────────────────
 
 fn row_to_session(row: ChatSessionRow, messages: Vec<ChatMessageRow>) -> ChatSessionResponse {

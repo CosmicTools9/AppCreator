@@ -1,6 +1,7 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use common::context::{RequestContext, RequestContextExt};
 use serde::Deserialize;
+use crate::chat;
 use serde_json::json;
 
 pub async fn list_apps(req: HttpRequest) -> HttpResponse {
@@ -92,13 +93,20 @@ pub async fn login_standalone(
             .json(json!({"error":"bad_request","message":"Username required"}));
     }
     let un = raw.to_lowercase();
-    let existing: Option<(i64, String, String)> = sqlx::query_as(
+    let existing = match sqlx::query_as::<_, (i64, String, String)>(
         "SELECT id, username, namespace FROM app_creator.users WHERE username_norm = $1",
     )
     .bind(&un)
     .fetch_optional(pool.get_ref())
     .await
-    .unwrap_or(None);
+    {
+        Ok(row) => row,
+        Err(e) => {
+            log::error!("login_standalone: DB lookup failed: {e}");
+            return HttpResponse::InternalServerError()
+                .json(json!({"error":"db_error","message":"Login check failed, ensure database is initialized (ensure-schema.sh + backend/ddl/*.sql)"}));
+        }
+    };
     let (user_id, username, namespace, is_new) = match existing {
         Some((id, uname, ns)) => (id, uname, ns, false),
         None => {
@@ -135,9 +143,18 @@ pub async fn login_standalone(
         cfg.encoding_key.as_ref().expect("encoding_key"),
     )
     .expect("JWT signing");
+
+    // Issue refresh token (best-effort)
+    let refresh_token = chat::issue_refresh_token(pool.get_ref(), user_id)
+        .await
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to issue refresh token: {e}");
+            String::new()
+        });
+
     let st = if is_new { 201 } else { 200 };
     HttpResponse::build(actix_web::http::StatusCode::from_u16(st).unwrap())
-        .json(json!({"token":token,"user":{"id":user_id,"username":username,"namespace":namespace,"is_new":is_new}}))
+        .json(json!({"token":token,"refresh_token":refresh_token,"user":{"id":user_id,"username":username,"namespace":namespace,"is_new":is_new}}))
 }
 
 fn derive_namespace(raw: &str) -> Result<String, &'static str> {
@@ -154,8 +171,70 @@ fn derive_namespace(raw: &str) -> Result<String, &'static str> {
         .map(|c| c.to_uppercase().to_string() + &s[1..])
         .unwrap_or_default();
     Ok(format!("NS-{pascal}"))
+
+}
+pub async fn refresh_token(
+    pool: web::Data<sqlx::PgPool>,
+    body: web::Json<RefreshRequest>,
+) -> HttpResponse {
+    let cfg = crate::auth_config::auth_config();
+    if cfg.mode != crate::auth_config::AuthMode::Standalone {
+        return HttpResponse::NotFound().json(json!({"error":"not_found"}));
+    }
+
+    let user_id = match chat::consume_refresh_token(pool.get_ref(), &body.refresh_token).await {
+        Ok(Some(id)) => id,
+        Ok(None) => return HttpResponse::Unauthorized().json(json!({"error":"invalid_refresh_token"})),
+        Err(e) => {
+            log::error!("refresh_token DB error: {e}");
+            return HttpResponse::InternalServerError().json(json!({"error":"db_error"}));
+        }
+    };
+
+    let (username, namespace) = match sqlx::query_as::<_, (String, String)>(
+        "SELECT username, namespace FROM app_creator.users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(row)) => row,
+        _ => return HttpResponse::NotFound().json(json!({"error":"user_not_found"})),
+    };
+
+    let now = chrono::Utc::now();
+    let claims = crate::auth_config::StandaloneClaims {
+        sub: user_id.to_string(),
+        email: format!("{username}@standalone.local"),
+        exp: (now.timestamp() + 1800) as i64,
+        iat: now.timestamp() as i64,
+        username: username.clone(),
+        namespace: namespace.clone(),
+        iss: Some("app-creator-standalone".to_string()),
+        sid: String::new(),
+    };
+    let access_token = jsonwebtoken::encode(
+        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256),
+        &claims,
+        cfg.encoding_key.as_ref().expect("encoding_key"),
+    )
+    .expect("JWT signing");
+
+    let new_refresh = chat::issue_refresh_token(pool.get_ref(), user_id)
+        .await
+        .unwrap_or_default();
+
+    HttpResponse::Ok().json(json!({
+        "token": access_token,
+        "refresh_token": new_refresh,
+        "user": {"id": user_id, "username": username, "namespace": namespace}
+    }))
 }
 
+#[derive(Deserialize)]
+pub struct RefreshRequest {
+    pub refresh_token: String,
+}
 #[cfg(test)]
 mod tests {
     use super::*;

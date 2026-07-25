@@ -1689,3 +1689,10 @@ body {
   border-radius: 2px;
   transition: width 0.3s ease;
 }
+
+/* ── Workspace Error Banner ── */
+.workspace-error {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--error);
+}

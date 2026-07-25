@@ -26,4 +26,7 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: true,
   },
+  // Use relative base path so built output works with file:// protocol
+  // (localhost:port also serves fine with './' — modern browsers resolve correctly)
+  base: "./",
 });

@@ -73,8 +73,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/apps", web::post().to(chat::create_app_handler))
                     // P3 — User
                     .route("/user/me", web::get().to(handlers::get_current_user))
-                    // P3b — Standalone login (404 in SSO mode)
-                    .route("/auth/login", web::post().to(handlers::login_standalone)),
+                    .route("/auth/login", web::post().to(handlers::login_standalone))
+                    .route("/auth/refresh", web::post().to(handlers::refresh_token)),
             )
             .wrap(Logger::default())
             .wrap(common::RateLimitMiddleware::per_ip_any(

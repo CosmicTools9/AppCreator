@@ -919,7 +919,7 @@ impl CliRunner {
         let version_request = serde_json::json!({
             "module_id": module_id,
             "version": args.version,
-            "changelog": args.changelog,
+"": args.,
             "metadata": metadata,
             "is_stable": args.stable,
         });
