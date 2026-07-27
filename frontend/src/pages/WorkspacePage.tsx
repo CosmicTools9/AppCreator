@@ -9,7 +9,7 @@ import {
   prototypeUrlAtom,
   type ChatMessage,
 } from '../stores/chat';
-import { api, ApiError, type ChatSession } from '../api/client';
+import { api, ApiError, type ChatSession, type AppInfo } from '../api/client';
 
 const TEMPLATES = [
   {
@@ -52,6 +52,7 @@ export function WorkspacePage() {
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [progress, setProgress] = useState<{ state: string; percent: number } | null>(null);
+  const [apps, setApps] = useState<AppInfo[]>([]);
   const chatEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const interruptedRef = useRef(false);
@@ -65,6 +66,12 @@ export function WorkspacePage() {
       setSessions(res.sessions ?? []);
     } catch {
       // list failure is non-blocking
+    }
+    try {
+      const res = await api.listApps(optsRef.current);
+      setApps(res.apps ?? []);
+    } catch {
+      // apps list failure is non-blocking
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -85,7 +92,7 @@ export function WorkspacePage() {
         if (
           session &&
           session.status === 'app_creating' &&
-          !session.messages.some((m) => m.role === 'assistant')
+          !session.messages?.some((m) => m.role === 'assistant')
         ) {
           runGenerateLoop(sid);
         }
@@ -96,14 +103,22 @@ export function WorkspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const newSession = () => {
+  const newSession = async () => {
     setSessionId(null);
     setMessages([]);
     setPrototypeUrl(null);
     setInput('');
     setError(null);
     setProgress(null);
-    // Keep sessions list intact — user can still return to old sessions
+
+    try {
+      const session = await api.createSession({ title: '新会话', namespace: '' }, optsRef.current);
+      setSessionId(session.id);
+      // Prepend new session to the sidebar list, keep old ones
+      setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)]);
+    } catch {
+      // Non-blocking: sidebar will refresh on next load
+    }
   };
 
   const loadSession = async (id: number): Promise<ChatSession | null> => {
@@ -233,6 +248,64 @@ export function WorkspacePage() {
             </p>
           )}
         </div>
+        {apps.length > 0 && (
+          <div
+            className="workspace-sidebar-apps"
+            style={{ borderTop: '1px solid var(--border)', padding: '8px 0' }}
+          >
+            <div
+              className="muted-text"
+              style={{
+                padding: '4px 16px',
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}
+            >
+              我的应用
+            </div>
+            {apps.map((app) => (
+              <div
+                key={app.code}
+                className="workspace-session-item"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '6px 16px',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}
+                >
+                  {app.code}
+                </span>
+                <button
+                  className="workspace-logout-btn"
+                  style={{ fontSize: 11, padding: '2px 8px', margin: 0 }}
+                  onClick={async () => {
+                    try {
+                      await api.deleteApp(app.code, optsRef.current);
+                      setApps((prev) => prev.filter((a) => a.code !== app.code));
+                    } catch {
+                      setError('删除应用失败');
+                    }
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {user && (
           <div className="workspace-sidebar-footer">
             <span
@@ -378,13 +451,18 @@ export function WorkspacePage() {
                 try {
                   const html = await api.fetchPrototype(Number(prototypeUrl), optsRef.current);
                   const blob = new Blob([html], { type: 'text/html' });
-                  window.open(URL.createObjectURL(blob), '_blank');
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `prototype-${prototypeUrl}.html`;
+                  a.click();
+                  URL.revokeObjectURL(url);
                 } catch (e) {
                   setError(e instanceof ApiError ? e.message : '加载原型失败');
                 }
               }}
             >
-              预览应用
+              下载原型
             </button>
           </div>
         )}
