@@ -96,6 +96,32 @@ async function request<T>(path: string, options: RequestInit & ApiOptions): Prom
   return json as T;
 }
 
+export interface ChatSession {
+  id: number;
+  title: string | null;
+  app_instance_id: number | null;
+  namespace: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  messages?: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: number;
+  session_id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+export interface StepResponse {
+  state_before: string;
+  state_after: string;
+  is_terminal: boolean;
+  progress_percent: number;
+  message: string;
+}
 export interface CreateAppResponse {
   session: ChatSession;
   app_name: string;
