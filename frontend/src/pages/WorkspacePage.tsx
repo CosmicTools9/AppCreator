@@ -103,7 +103,7 @@ export function WorkspacePage() {
     setInput('');
     setError(null);
     setProgress(null);
-    setSessions([]);
+    // Keep sessions list intact — user can still return to old sessions
   };
 
   const loadSession = async (id: number): Promise<ChatSession | null> => {
@@ -172,7 +172,10 @@ export function WorkspacePage() {
 
     try {
       if (!id) {
-        const session = await api.createSession({ title: text.slice(0, 80), namespace: '' }, opts);
+        const session = await api.createSession(
+          { title: text.slice(0, 80), namespace: '' },
+          optsRef.current,
+        );
         id = session.id;
         setSessionId(id);
       }
