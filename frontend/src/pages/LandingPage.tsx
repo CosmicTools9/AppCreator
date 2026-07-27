@@ -1,7 +1,7 @@
 // 单一真相源：AppCreator Landing Page 的权威实现。
 // 旧设计稿 design/landing-v1.html 已于 2026-07-22 归档至 design/_archive/（如需恢复：git mv 回 design/ 即可）。
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useSetAtom } from 'jotai';
 import { useAuth } from '../stores/auth';
 import { currentSessionIdAtom } from '../stores/chat';
