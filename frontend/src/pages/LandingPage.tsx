@@ -2,10 +2,7 @@
 // 旧设计稿 design/landing-v1.html 已于 2026-07-22 归档至 design/_archive/（如需恢复：git mv 回 design/ 即可）。
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useSetAtom } from 'jotai';
 import { useAuth } from '../stores/auth';
-import { currentSessionIdAtom } from '../stores/chat';
-import { api } from '../api/client';
 
 const STEPS = [
   {
@@ -154,33 +151,15 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { token } = useAuth();
-  const setSessionId = useSetAtom(currentSessionIdAtom);
-  const [showDialog, setShowDialog] = useState(false);
-  const [appName, setAppName] = useState('');
-  const [appDesc, setAppDesc] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
 
-  const handleCreate = async () => {
-    if (!appName.trim() || !appDesc.trim()) return;
-    setCreating(true);
-    setCreateError(null);
-    try {
-      const res = await api.createApp(
-        { name: appName.trim(), description: appDesc.trim() },
-        { token },
-      );
-      setSessionId(res.session.id);
-      navigate('/workspace', { state: { sessionId: res.session.id } });
-    } catch (e) {
-      setCreateError(e instanceof Error ? e.message : '创建失败');
-    } finally {
-      setCreating(false);
+  const handleStartClick = () => {
+    if (isAuthenticated) {
+      navigate('/workspace');
+    } else {
+      navigate('/login');
     }
   };
-
-  const handleStartClick = () => setShowDialog(true);
   const scrollTo = (id: string) => (e: { preventDefault: () => void }) => {
     e.preventDefault();
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -394,50 +373,76 @@ export function LandingPage() {
           ))}
         </div>
 
-        {/* Social proof */}
-        <section className="stats-section">
-          <div className="stats-grid">
-            <div className="stat-item">
-              <div className="stat-number">
-                10,000<span className="stat-suffix">+</span>
+        {/* Example apps */}
+        <section className="examples-section">
+          <div className="section-label">—— 示例应用</div>
+          <h2 className="text-h1 section-heading">对话即可生成的企业应用</h2>
+          <div className="examples-grid">
+            <div className="example-card" onClick={handleStartClick}>
+              <div className="example-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="3" width="20" height="18" rx="2" />
+                  <path d="M9 12h6M12 9v6" />
+                </svg>
               </div>
-              <div className="stat-label">企业应用原型已生成</div>
+              <h3>管理后台</h3>
+              <p className="muted-text">用户管理、权限配置、操作日志、数据仪表盘</p>
             </div>
-            <div className="stat-item">
-              <div className="stat-number">
-                500<span className="stat-suffix">+</span>
+            <div className="example-card" onClick={handleStartClick}>
+              <div className="example-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                  <rect x="9" y="3" width="6" height="4" rx="1" />
+                  <path d="M9 14l2 2 4-4" />
+                </svg>
               </div>
-              <div className="stat-label">企业团队正在使用</div>
+              <h3>审批流程</h3>
+              <p className="muted-text">报销审批、请假流程、合同审核、任务流转</p>
             </div>
-            <div className="stat-item">
-              <div className="stat-number">
-                8<span className="stat-suffix"> 分钟</span>
+            <div className="example-card" onClick={handleStartClick}>
+              <div className="example-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                  <path d="M12 18V6" />
+                </svg>
               </div>
-              <div className="stat-label">平均产出首个可用原型</div>
+              <h3>ERP 模块</h3>
+              <p className="muted-text">采购管理、库存跟踪、订单处理、供应商门户</p>
             </div>
-            <div className="stat-item">
-              <div className="stat-number">
-                99.9<span className="stat-suffix">%</span>
+            <div className="example-card" onClick={handleStartClick}>
+              <div className="example-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <path d="M4 10h16M10 4v16" />
+                </svg>
               </div>
-              <div className="stat-label">原型生成成功率</div>
+              <h3>数据看板</h3>
+              <p className="muted-text">销售报表、运营指标、实时监控、趋势分析</p>
             </div>
-          </div>
-          {/* TODO: 下方数字/行业标签/证言为占位，请由市场或运营替换为真实运营数据 */}
-          <div className="logos-strip">
-            <span className="logos-strip-label">已被各行业团队用于</span>
-            <div className="logos-row">
-              <span className="logo-pill">制造企业</span>
-              <span className="logo-pill">物流供应链</span>
-              <span className="logo-pill">零售连锁</span>
-              <span className="logo-pill">金融服务</span>
-              <span className="logo-pill">教育培训</span>
+            <div className="example-card" onClick={handleStartClick}>
+              <div className="example-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <h3>客户管理</h3>
+              <p className="muted-text">客户列表、联系人、关联订单、活动记录</p>
             </div>
-          </div>
-          <div className="testimonial">
-            <p className="testimonial-quote">
-              “我们用 AppCreator 在两天内搭出了完整的采购审批流，省下了一个月的外包开发量。”
-            </p>
-            <p className="testimonial-author">— 某制造企业 IT 负责人</p>
+            <div className="example-card" onClick={handleStartClick}>
+              <div className="example-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="2" width="9" height="9" rx="1.5" />
+                  <rect x="13" y="2" width="9" height="9" rx="1.5" />
+                  <rect x="2" y="13" width="9" height="9" rx="1.5" />
+                  <rect x="13" y="13" width="9" height="9" rx="1.5" />
+                </svg>
+              </div>
+              <h3>仓储物流</h3>
+              <p className="muted-text">入库管理、出库管理、库位分配、移位作业</p>
+            </div>
           </div>
         </section>
 
@@ -552,52 +557,6 @@ export function LandingPage() {
           <p>Enterprise apps from conversation</p>
         </div>
       </footer>
-
-      {/* Create App Dialog */}
-      {showDialog && (
-        <div className="dialog-overlay" onClick={() => setShowDialog(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>创建新应用</h3>
-            <p className="muted-text">描述你的业务需求，AppCreator 将即时生成企业应用原型。</p>
-            <label>
-              应用名称
-              <input
-                type="text"
-                placeholder="例如：采购管理系统"
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
-                autoFocus
-              />
-            </label>
-            <label>
-              需求描述
-              <textarea
-                placeholder="例如：一个采购管理系统，包含供应商管理、采购订单、入库验收、退货处理等功能"
-                value={appDesc}
-                onChange={(e) => setAppDesc(e.target.value)}
-                rows={4}
-              />
-            </label>
-            {createError && <p className="error-text">{createError}</p>}
-            <div className="dialog-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowDialog(false)}
-                disabled={creating}
-              >
-                取消
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleCreate}
-                disabled={creating || !appName.trim() || !appDesc.trim()}
-              >
-                {creating ? '创建中...' : '开始创建'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
