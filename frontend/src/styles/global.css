@@ -551,10 +551,93 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
 }
-/* ═══════════════════════════════════════
-   Workspace — Product Usage Page
-   ═══════════════════════════════════════ */
-.workspace-layout {
+
+.auth-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.auth-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.auth-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.form-error {
+  font-size: 13px;
+  color: var(--error);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.auth-card .btn-secondary {
+  font-size: 13px;
+  padding: 10px 28px;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.oauth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-oauth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-oauth:hover {
+  border-color: var(--accent);
+  background: rgb(37 99 235 / 6%);
+}
+
+.btn-oauth svg {
+  flex-shrink: 0;
+}
+
+/* ── Spinner ── */
+.spinner {
   display: flex;
   height: 100vh;
   overflow: hidden;

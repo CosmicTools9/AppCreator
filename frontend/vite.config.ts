@@ -20,6 +20,10 @@ export default defineConfig({
         target: "http://localhost:49495",
         changeOrigin: true,
       },
+      "/auth": {
+        target: "http://localhost:9002",
+        changeOrigin: true,
+      },
     },
   },
   build: {
