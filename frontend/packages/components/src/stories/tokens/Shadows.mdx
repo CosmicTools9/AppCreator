@@ -1,0 +1,40 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Design Tokens/Shadows" />
+
+# Shadows
+
+Elevation system for creating depth and hierarchy.
+
+## Shadow Scale
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `shadow.sm` | `0 1px 2px 0 rgb(0 0 0 / 0.05)` | Subtle elevation |
+| `shadow.DEFAULT` | `0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)` | Default cards |
+| `shadow.md` | `0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)` | Hover states |
+| `shadow.lg` | `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)` | Modals |
+| `shadow.xl` | `0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)` | Dialogs |
+| `shadow.2xl` | `0 25px 50px -12px rgb(0 0 0 / 0.25)` | Maximum elevation |
+
+## Border Radius
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `radius.none` | 0px | Sharp edges |
+| `radius.sm` | 2px | Small rounding |
+| `radius.DEFAULT` | 4px | Default rounding |
+| `radius.md` | 6px | Medium rounding |
+| `radius.lg` | 8px | Large rounding |
+| `radius.xl` | 12px | Extra large |
+| `radius.2xl` | 16px | 2X large |
+| `radius.3xl` | 24px | 3X large |
+| `radius.full` | 9999px | Fully rounded |
+
+## Usage
+
+```tsx
+<div className="shadow-md hover:shadow-lg rounded-lg">
+  Elevated card content
+</div>
+```

@@ -1,0 +1,34 @@
+{
+  "name": "@alioth/ontology",
+  "version": "0.1.0",
+  "description": "AliothStudio ontology projection — domain coordinate system for the business model",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@alioth/api": "workspace:*",
+    "@alioth/i18n": "workspace:*",
+    "@tanstack/react-query": "^5.101.4",
+    "react": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "react": "^19.2.6"
+  }
+}

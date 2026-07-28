@@ -1,0 +1,23 @@
+{
+  "components.ontology.status.none": "无状态",
+  "components.ontology.empty.notFound": "未找到本体数据",
+  "components.ontology.space.title": "空间坐标",
+  "components.ontology.space.scene": "场景 (Scene)",
+  "components.ontology.space.factor": "要素 (Factor)",
+  "components.ontology.space.function": "职能 (Function)",
+  "components.ontology.timeline.title": "时间坐标 — 状态轴",
+  "components.ontology.timeline.currentStatus": "当前状态",
+  "components.ontology.timeline.availableTransitions": "可用转移",
+  "components.ontology.timeline.history": "状态历史",
+  "components.ontology.timeline.initial": "初始",
+  "components.ontology.category.title": "分类",
+  "components.ontology.category.empty": "无分类",
+  "components.ontology.tag.title": "标签",
+  "components.ontology.tag.empty": "无标签",
+  "components.ontology.inheritance.title": "类型坐标 — 继承链",
+  "components.ontology.inheritance.currentTable": "当前表：",
+  "components.ontology.inheritance.leaf": "叶子实例",
+  "components.ontology.inheritance.abstract": "抽象节点",
+  "components.ontology.form.title": "业务形态",
+  "components.ontology.form.abstractLevel": "抽象层级"
+}

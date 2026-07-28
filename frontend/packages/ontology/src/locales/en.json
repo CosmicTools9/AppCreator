@@ -1,0 +1,23 @@
+{
+  "components.ontology.status.none": "No status",
+  "components.ontology.empty.notFound": "Ontology data not found",
+  "components.ontology.space.title": "Spatial Coordinates",
+  "components.ontology.space.scene": "Scene",
+  "components.ontology.space.factor": "Factor",
+  "components.ontology.space.function": "Function",
+  "components.ontology.timeline.title": "Temporal Coordinates — Status Axis",
+  "components.ontology.timeline.currentStatus": "Current Status",
+  "components.ontology.timeline.availableTransitions": "Available Transitions",
+  "components.ontology.timeline.history": "Status History",
+  "components.ontology.timeline.initial": "Initial",
+  "components.ontology.category.title": "Categories",
+  "components.ontology.category.empty": "No categories",
+  "components.ontology.tag.title": "Tags",
+  "components.ontology.tag.empty": "No tags",
+  "components.ontology.inheritance.title": "Type Coordinates — Inheritance Chain",
+  "components.ontology.inheritance.currentTable": "Current table:",
+  "components.ontology.inheritance.leaf": "Leaf instance",
+  "components.ontology.inheritance.abstract": "Abstract node",
+  "components.ontology.form.title": "Business form",
+  "components.ontology.form.abstractLevel": "Abstract level"
+}

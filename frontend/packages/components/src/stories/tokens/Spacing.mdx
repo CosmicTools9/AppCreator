@@ -1,0 +1,34 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Design Tokens/Spacing" />
+
+# Spacing
+
+AliothStudio uses a 4px (0.25rem) base unit for consistent spacing.
+
+## Space Scale
+
+| Token | Value | Preview |
+|-------|-------|---------|
+| `0` | 0px | |
+| `0.5` | 2px | <div className="h-0.5 bg-primary rounded" style={{ width: 100 }} /> |
+| `1` | 4px | <div className="h-1 bg-primary rounded" style={{ width: 100 }} /> |
+| `2` | 8px | <div className="h-2 bg-primary rounded" style={{ width: 100 }} /> |
+| `3` | 12px | <div className="h-3 bg-primary rounded" style={{ width: 100 }} /> |
+| `4` | 16px | <div className="h-4 bg-primary rounded" style={{ width: 100 }} /> |
+| `5` | 20px | <div className="h-5 bg-primary rounded" style={{ width: 100 }} /> |
+| `6` | 24px | <div className="h-6 bg-primary rounded" style={{ width: 100 }} /> |
+| `8` | 32px | <div className="h-8 bg-primary rounded" style={{ width: 100 }} /> |
+| `10` | 40px | <div className="h-10 bg-primary rounded" style={{ width: 100 }} /> |
+| `12` | 48px | <div className="h-12 bg-primary rounded" style={{ width: 100 }} /> |
+| `16` | 64px | <div className="h-16 bg-primary rounded" style={{ width: 100 }} /> |
+| `20` | 80px | <div className="h-20 bg-primary rounded" style={{ width: 100 }} /> |
+| `24` | 96px | <div className="h-24 bg-primary rounded" style={{ width: 100 }} /> |
+
+## Usage
+
+```tsx
+<div className="p-4 m-2 gap-3">
+  {/* padding 16px, margin 8px, gap 12px */}
+</div>
+```

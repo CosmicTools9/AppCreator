@@ -1,0 +1,22 @@
+{
+  "name": "@alioth/config",
+  "version": "0.1.0",
+  "description": "AliothStudio shared configuration presets",
+  "type": "module",
+  "exports": {
+    "./typescript": "./typescript/tsconfig.base.json",
+    "./vite": "./vite/index.js"
+  },
+  "files": [
+    "vite",
+    "typescript"
+  ],
+  "scripts": {
+    "build": "tsc -p vite/tsconfig.json"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
+  }
+}

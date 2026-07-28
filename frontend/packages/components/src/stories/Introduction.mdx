@@ -1,0 +1,74 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Getting Started/Introduction" />
+
+# AliothStudio Design System
+
+Welcome to the AliothStudio Design System — a comprehensive component library for building enterprise data management applications.
+
+## Overview
+
+AliothStudio provides a set of React components built with:
+- **Tailwind CSS v4** for styling
+- **Radix UI** for accessible primitives
+- **TypeScript** for type safety
+- **shadcn/ui** patterns for consistency
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install @alioth/components
+```
+
+### Usage
+
+```tsx
+import { Button, Card, ThemeProvider } from '@alioth/components';
+
+function App() {
+  return (
+    <ThemeProvider>
+      <Card>
+        <h1>Welcome</h1>
+        <Button>Get Started</Button>
+      </Card>
+    </ThemeProvider>
+  );
+}
+```
+
+## Components
+
+Browse components in the sidebar:
+- **UI** — Buttons, inputs, dialogs, and more
+- **Layout** — App shells, navigation, grids
+- **Feedback** — Loading states, errors, empty states
+- **Form** — AutoForm, form fields, validation
+- **Data** — Tables, pagination, data display
+
+## Theming
+
+The design system supports light and dark themes out of the box:
+
+```tsx
+import { ThemeProvider, ThemeToggle } from '@alioth/components';
+
+function App() {
+  return (
+    <ThemeProvider defaultTheme="system">
+      <ThemeToggle />
+      {/* Your app */}
+    </ThemeProvider>
+  );
+}
+```
+
+## Design Tokens
+
+View the complete design tokens documentation in the **Design Tokens** section.
+
+---
+
+*Built with ❤️ by the AliothStudio team*

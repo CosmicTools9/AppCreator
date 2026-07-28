@@ -1,0 +1,97 @@
+{
+  "name": "@alioth/composables",
+  "version": "0.1.0",
+  "description": "AliothStudio composable business components \u2014 combines UI from @alioth/components with data from @alioth/api and @alioth/hooks",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./form": {
+      "import": {
+        "types": "./dist/form/index.d.ts",
+        "default": "./dist/form/index.js"
+      }
+    },
+    "./workspace": {
+      "import": {
+        "types": "./dist/workspace/index.d.ts",
+        "default": "./dist/workspace/index.js"
+      }
+    },
+    "./schedule": {
+      "import": {
+        "types": "./dist/schedule/index.d.ts",
+        "default": "./dist/schedule/index.js"
+      }
+    },
+    "./ontology": {
+      "import": {
+        "types": "./dist/ontology/index.d.ts",
+        "default": "./dist/ontology/index.js"
+      }
+    },
+    "./system-config": {
+      "import": {
+        "types": "./dist/system-config/index.d.ts",
+        "default": "./dist/system-config/index.js"
+      }
+    },
+    "./layout": {
+      "import": {
+        "types": "./dist/layout/index.d.ts",
+        "default": "./dist/layout/index.js"
+      }
+    },
+    "./identity": {
+      "import": {
+        "types": "./dist/identity/index.d.ts",
+        "default": "./dist/identity/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@alioth/api": "workspace:*",
+    "@alioth/components": "workspace:*",
+    "@alioth/hooks": "workspace:*",
+    "@alioth/i18n": "workspace:*",
+    "@alioth/ontology": "workspace:*",
+    "@tanstack/react-query": "^5.101.4"
+  },
+  "peerDependencies": {
+    "@hookform/resolvers": "^5.4.0",
+    "date-fns": "^4.4.0",
+    "jotai": "^2.19.1",
+    "react": "^19.2.6",
+    "react-day-picker": "^10.0.1",
+    "react-dom": "^19.2.6",
+    "react-hook-form": "^7.77.0",
+    "sonner": "^2.0.7",
+    "zod": "^4.4.3",
+    "react-router": "^8.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "lucide-react": "^1.27.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
+    "vite-plugin-dts": "^5.0.3"
+  }
+}
