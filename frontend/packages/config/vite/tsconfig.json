@@ -1,0 +1,15 @@
+{
+  "extends": "../typescript/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": ".",
+    "outDir": ".",
+    "declaration": true,
+    "emitDeclarationOnly": false
+  },
+  "include": ["index.ts"],
+  "exclude": ["index.js", "index.d.ts", "node_modules", "dist"]
+}

@@ -1,0 +1,58 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Design Tokens/Colors" />
+
+# Colors
+
+AliothStudio uses a semantic color system built on CSS custom properties.
+
+## Core Color Scale
+
+### Primary Blue
+
+| Token | Value | Preview |
+|-------|-------|---------|
+| `blue.50` | `#eff6ff` | <div style={{ width: 24, height: 24, backgroundColor: '#eff6ff', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.100` | `#dbeafe` | <div style={{ width: 24, height: 24, backgroundColor: '#dbeafe', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.200` | `#bfdbfe` | <div style={{ width: 24, height: 24, backgroundColor: '#bfdbfe', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.300` | `#93c5fd` | <div style={{ width: 24, height: 24, backgroundColor: '#93c5fd', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.400` | `#60a5fa` | <div style={{ width: 24, height: 24, backgroundColor: '#60a5fa', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.500` | `#3b82f6` | <div style={{ width: 24, height: 24, backgroundColor: '#3b82f6', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.600` | `#2563eb` | <div style={{ width: 24, height: 24, backgroundColor: '#2563eb', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.700` | `#1d4ed8` | <div style={{ width: 24, height: 24, backgroundColor: '#1d4ed8', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.800` | `#1e40af` | <div style={{ width: 24, height: 24, backgroundColor: '#1e40af', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.900` | `#1e3a8a` | <div style={{ width: 24, height: 24, backgroundColor: '#1e3a8a', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+| `blue.950` | `#172554` | <div style={{ width: 24, height: 24, backgroundColor: '#172554', borderRadius: 4, border: '1px solid #e2e8f0' }} /> |
+
+### Semantic Colors
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--background` | `0 0% 100%` | `222.2 84% 4.9%` | Page background |
+| `--foreground` | `222.2 84% 4.9%` | `210 40% 98%` | Primary text |
+| `--card` | `0 0% 100%` | `222.2 84% 4.9%` | Card background |
+| `--primary` | `217 91% 60%` | `217 91% 60%` | Primary actions |
+| `--secondary` | `210 40% 96.1%` | `217.2 32.6% 17.5%` | Secondary elements |
+| `--muted` | `210 40% 96.1%` | `217.2 32.6% 17.5%` | Muted backgrounds |
+| `--accent` | `210 40% 96.1%` | `217.2 32.6% 17.5%` | Accent highlights |
+| `--destructive` | `0 84.2% 60.2%` | `0 62.8% 30.6%` | Error / destructive |
+| `--border` | `214.3 31.8% 91.4%` | `217.2 32.6% 17.5%` | Borders |
+| `--ring` | `217 91% 60%` | `217 91% 60%` | Focus rings |
+| `--success` | `160 84% 39%` | `160 84% 39%` | Success states |
+| `--warning` | `38 92% 50%` | `38 92% 50%` | Warning states |
+| `--info` | `217 91% 60%` | `217 91% 60%` | Info states |
+
+## Usage
+
+```css
+.my-component {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+```
+
+```tsx
+<div className="bg-primary text-primary-foreground">
+  Primary content
+</div>
+```

@@ -7,6 +7,8 @@ which remain for future activation.
 
 ## Vendored (present in this repo)
 
+### Dev scripts
+
 | Asset | Repo path | Source (main repo) |
 |---|---|---|
 | `guard-mise-task.sh` | `scripts/lib/` | `scripts/lib/` |
@@ -31,6 +33,43 @@ and the following vendored crates under `backend/vendor/`:
 | `ontology-mapping` | `Meta/backend/ontology-mapping` | transitive via `app-agent` |
 | `app-agent` | `Meta/backend/app-agent` | core AppAgent orchestrator, state machine, skills |
 | `ontology-gen-bridge` | `Meta/backend/ontology-gen-bridge` | transitive via `app-agent` |
+
+### Frontend packages (`frontend/packages/`)
+
+| Package | Source | Files |
+|---|---|---|
+| `@alioth/api` | `Framework/frontend/api` | 16 TS files, 140K |
+| `@alioth/hooks` | `Framework/frontend/hooks` | 26 TS files, 116K |
+| `@alioth/components` | `Framework/frontend/components` | 200 TS/CSS files, 1.2M |
+| `@alioth/i18n` | `Framework/frontend/i18n` | 7 TS files, 36K |
+| `@alioth/types` | `Framework/frontend/types` | 5 TS files, 20K |
+| `@alioth/utils` | `Framework/frontend/utils` | 12 TS files, 48K |
+| `@alioth/config` | `Framework/frontend/config` | vite/tsconfig presets |
+| `@alioth/composables` | `Framework/frontend/composables` | 23 TS files, 168K |
+| `@alioth/ontology` | `Framework/frontend/ontology` | 7 TS files, 52K |
+
+### Build scripts + references
+
+| Asset | Path | Source |
+|---|---|---|
+| GatewayShell component | `references/gateway-shell.tsx` (823 lines) | `.agents/skills/alioth-design/references/gateway-shell.tsx` |
+| Skill definitions | `skill-adapters/*.yaml` (9 files) | `skill-adapters/*.yaml` |
+| Icon pool | `references/icon-pool.js` | `.agents/skills/alioth-design/references/icon-pool.js` |
+| Base CSS | `references/prototype-base.css` | `.agents/skills/alioth-design/references/prototype-base.css` |
+| Shell templates | `references/shells/*.tsx` (5 files) | `.agents/skills/alioth-design/references/shells/` |
+| CDN vendor UMDs | `references/vendor/*` (7 files) | `.agents/skills/alioth-design/references/vendor/` |
+| Prototype build script | `scripts/prototype-tool.js` (2062 lines) | `scripts/prototype-tool.js` |
+| Sync script | `scripts/sync-prototype.sh` (253 lines) | `scripts/sync-prototype.sh` |
+| CSS audit | `scripts/check/audit-css-framework.mjs` | `scripts/check/audit-css-framework.mjs` |
+| Prototype eval | `scripts/eval/evaluate-prototype-reference.ts` | `scripts/eval/evaluate-prototype-reference.ts` |
+| CSS utilities data | `Framework/frontend/components/utilities.json` | `Framework/frontend/components/utilities.json` (symlink) |
+
+### Path compatibility symlinks
+
+| Symlink | Target |
+|---|---|
+| `.agents/skills/alioth-design/references` | `../../references` |
+| `Framework/frontend/components` | `../frontend/packages/components` |
 
 ## Not yet vendored
 

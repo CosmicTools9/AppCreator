@@ -1,21 +1,43 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useAtom } from "jotai";
-import { useAuth } from "../stores/auth";
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router';
+import { useAtom } from 'jotai';
+import { useAuth } from '../stores/auth';
 import {
   currentSessionIdAtom,
   messagesAtom,
   isGeneratingAtom,
   prototypeUrlAtom,
   type ChatMessage,
-} from "../stores/chat";
-import { api, ApiError, type ChatSession } from "../api/client";
+} from '../stores/chat';
+import { api, ApiError, type ChatSession, type AppInfo } from '../api/client';
 
 const TEMPLATES = [
-  { name: "客户管理后台", prompt: "请创建一个客户管理后台，包含客户列表、客户详情、客户表单等功能", desc: "列表、详情、表单" },
-  { name: "审批流程", prompt: "请创建一个审批流程应用，支持报销审批、请假审批、合同审批等场景", desc: "报销、请假、合同" },
-  { name: "ERP 模块", prompt: "请创建一个 ERP 管理模块，包含采购、库存、订单等核心业务功能", desc: "采购、库存、订单" },
-  { name: "数据看板", prompt: "请创建一个数据看板应用，包含销售报表和运营指标的实时展示", desc: "销售报表、运营指标" },
+  {
+    name: '客户管理后台',
+    prompt: '请创建一个客户管理后台，包含客户列表、客户详情、客户表单等功能',
+    desc: '列表、详情、表单',
+  },
+  {
+    name: '审批流程',
+    prompt: '请创建一个审批流程应用，支持报销审批、请假审批、合同审批等场景',
+    desc: '报销、请假、合同',
+  },
+  {
+    name: 'ERP 模块',
+    prompt: '请创建一个 ERP 管理模块，包含采购、库存、订单等核心业务功能',
+    desc: '采购、库存、订单',
+  },
+  {
+    name: '数据看板',
+    prompt: '请创建一个数据看板应用，包含销售报表和运营指标的实时展示',
+    desc: '销售报表、运营指标',
+  },
+];
+const TEMPLATE_ICONS = [
+  { bg: 'linear-gradient(135deg, #2563EB, #1D4ED8)', shape: 'rect' }, // 管理后台 — 方形
+  { bg: 'linear-gradient(135deg, #059669, #047857)', shape: 'circle' }, // 审批 — 圆形
+  { bg: 'linear-gradient(135deg, #D97706, #B45309)', shape: 'tri' }, // ERP — 三角
+  { bg: 'linear-gradient(135deg, #7C3AED, #6D28D9)', shape: 'bar' }, // 数据看板 — 条形
 ];
 
 export function WorkspacePage() {
@@ -26,10 +48,11 @@ export function WorkspacePage() {
   const [messages, setMessages] = useAtom(messagesAtom);
   const [isGenerating, setIsGenerating] = useAtom(isGeneratingAtom);
   const [prototypeUrl, setPrototypeUrl] = useAtom(prototypeUrlAtom);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [progress, setProgress] = useState<{ state: string; percent: number } | null>(null);
+  const [apps, setApps] = useState<AppInfo[]>([]);
   const chatEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const interruptedRef = useRef(false);
@@ -44,11 +67,21 @@ export function WorkspacePage() {
     } catch {
       // list failure is non-blocking
     }
+    try {
+      const res = await api.listApps(optsRef.current);
+      setApps(res.apps ?? []);
+    } catch {
+      // apps list failure is non-blocking
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  useEffect(() => { refreshSessions(); }, [refreshSessions]);
-  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    refreshSessions();
+  }, [refreshSessions]);
+  useEffect(() => {
+    chatEnd.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Mount: load session from Landing navigation or existing atom; auto-trigger if app_creating
   useEffect(() => {
@@ -56,7 +89,11 @@ export function WorkspacePage() {
     const sid = state?.sessionId ?? sessionId;
     if (sid && messages.length === 0) {
       loadSession(sid).then((session) => {
-        if (session && session.status === "app_creating" && !session.messages.some((m) => m.role === "assistant")) {
+        if (
+          session &&
+          session.status === 'app_creating' &&
+          !session.messages?.some((m) => m.role === 'assistant')
+        ) {
           runGenerateLoop(sid);
         }
       });
@@ -66,13 +103,22 @@ export function WorkspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const newSession = () => {
+  const newSession = async () => {
     setSessionId(null);
     setMessages([]);
     setPrototypeUrl(null);
-    setInput("");
+    setInput('');
     setError(null);
     setProgress(null);
+
+    try {
+      const session = await api.createSession({ title: '新会话', namespace: '' }, optsRef.current);
+      setSessionId(session.id);
+      // Prepend new session to the sidebar list, keep old ones
+      setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)]);
+    } catch {
+      // Non-blocking: sidebar will refresh on next load
+    }
   };
 
   const loadSession = async (id: number): Promise<ChatSession | null> => {
@@ -82,7 +128,7 @@ export function WorkspacePage() {
       setMessages(session.messages ?? []);
       return session;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "加载会话失败");
+      setError(e instanceof ApiError ? e.message : '加载会话失败');
       return null;
     }
   };
@@ -90,7 +136,7 @@ export function WorkspacePage() {
   const runGenerateLoop = async (id: number) => {
     setIsGenerating(true);
     setError(null);
-    setProgress({ state: "准备中", percent: 0 });
+    setProgress({ state: '准备中', percent: 0 });
     interruptedRef.current = false;
     let terminal = false;
 
@@ -102,7 +148,7 @@ export function WorkspacePage() {
         terminal = step.is_terminal;
         if (terminal) break;
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : "生成失败");
+        setError(e instanceof ApiError ? e.message : '生成失败');
         setProgress(null);
         break;
       }
@@ -114,7 +160,7 @@ export function WorkspacePage() {
     setIsGenerating(false);
     setProgress(null);
 
-    if (terminal && session?.status === "completed") {
+    if (terminal && session?.status === 'completed') {
       setPrototypeUrl(String(id));
     }
   };
@@ -133,7 +179,7 @@ export function WorkspacePage() {
   const sendMessage = async () => {
     if (!input.trim() || isGenerating) return;
     const text = input.trim();
-    setInput("");
+    setInput('');
     setError(null);
     setProgress(null);
 
@@ -142,23 +188,29 @@ export function WorkspacePage() {
     try {
       if (!id) {
         const session = await api.createSession(
-          { title: text.slice(0, 80), namespace: "" },
-          opts
+          { title: text.slice(0, 80), namespace: '' },
+          optsRef.current,
         );
         id = session.id;
         setSessionId(id);
       }
 
-      await api.addMessage(id, { content: text, role: "user" }, optsRef.current);
+      await api.addMessage(id, { content: text, role: 'user' }, optsRef.current);
       // Optimistic user message
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), session_id: id!, role: "user", content: text, created_at: new Date().toISOString() },
+        {
+          id: Date.now(),
+          session_id: id!,
+          role: 'user',
+          content: text,
+          created_at: new Date().toISOString(),
+        },
       ]);
 
       await runGenerateLoop(id);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "生成失败，请重试");
+      setError(e instanceof ApiError ? e.message : '生成失败，请重试');
       setIsGenerating(false);
     }
   };
@@ -176,30 +228,104 @@ export function WorkspacePage() {
           <div className="workspace-logo">AC</div>
           <span style={{ fontSize: 13, fontWeight: 600 }}>AppCreator</span>
         </div>
-        <button className="workspace-new-btn" onClick={newSession}>+ 新建会话</button>
+        <button className="workspace-new-btn" onClick={newSession}>
+          + 新建会话
+        </button>
         <div className="workspace-sidebar-list">
           {sessions.map((s) => (
             <div
               key={s.id}
-              className={`workspace-session-item${s.id === sessionId ? " active" : ""}`}
-              style={{ cursor: "pointer" }}
+              className={`workspace-session-item${s.id === sessionId ? ' active' : ''}`}
+              style={{ cursor: 'pointer' }}
               onClick={() => loadSession(s.id)}
             >
               {s.title || `会话 #${s.id}`}
             </div>
           ))}
           {sessions.length === 0 && (
-            <p className="muted-text" style={{ padding: 16, fontSize: 12, textAlign: "center" }}>
+            <p className="muted-text" style={{ padding: 16, fontSize: 12, textAlign: 'center' }}>
               开始新对话
             </p>
           )}
         </div>
+        {apps.length > 0 && (
+          <div
+            className="workspace-sidebar-apps"
+            style={{ borderTop: '1px solid var(--border)', padding: '8px 0' }}
+          >
+            <div
+              className="muted-text"
+              style={{
+                padding: '4px 16px',
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}
+            >
+              我的应用
+            </div>
+            {apps.map((app) => (
+              <div
+                key={app.code}
+                className="workspace-session-item"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '6px 16px',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}
+                >
+                  {app.code}
+                </span>
+                <button
+                  className="workspace-logout-btn"
+                  style={{ fontSize: 11, padding: '2px 8px', margin: 0 }}
+                  onClick={async () => {
+                    try {
+                      await api.deleteApp(app.code, optsRef.current);
+                      setApps((prev) => prev.filter((a) => a.code !== app.code));
+                    } catch {
+                      setError('删除应用失败');
+                    }
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {user && (
           <div className="workspace-sidebar-footer">
-            <span style={{ fontSize: 11, color: "var(--text-secondary)", display: "block", marginBottom: 8, padding: "0 4px" }}>
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--text-secondary)',
+                display: 'block',
+                marginBottom: 8,
+                padding: '0 4px',
+              }}
+            >
               {user.username}
             </span>
-            <button className="workspace-logout-btn" onClick={() => { logout(); navigate("/"); }}>
+            <button
+              className="workspace-logout-btn"
+              onClick={() => {
+                logout();
+                navigate('/');
+              }}
+            >
               退出登录
             </button>
           </div>
@@ -211,15 +337,62 @@ export function WorkspacePage() {
         {messages.length === 0 ? (
           <div className="workspace-empty">
             <div className="workspace-empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.3">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                opacity="0.3"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>开始创建你的应用</h3>
-            <p className="muted-text" style={{ fontSize: 14 }}>选择一个模板或直接输入你的需求</p>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>选择场景，开始创建</h3>
+            <p className="muted-text" style={{ fontSize: 14 }}>
+              选择一个模板或直接输入你的需求
+            </p>
             <div className="workspace-templates-quick" style={{ marginTop: 24 }}>
-              {TEMPLATES.map((t) => (
-                <button key={t.name} className="template-quick-btn" onClick={() => handleTemplate(t.prompt)}>
+              {TEMPLATES.map((t, i) => (
+                <button
+                  key={t.name}
+                  className="template-quick-btn"
+                  onClick={() => handleTemplate(t.prompt)}
+                >
+                  <div
+                    className="tpl-icon"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: i === 1 ? '50%' : 8,
+                      background: TEMPLATE_ICONS[i]?.bg || 'var(--accent)',
+                      marginBottom: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth="1.5"
+                    >
+                      {i === 0 && <rect x="2" y="2" width="12" height="12" rx="2" />}
+                      {i === 1 && <circle cx="8" cy="8" r="6" />}
+                      {i === 2 && <polygon points="8,2 14,13 2,13" />}
+                      {i === 3 && (
+                        <>
+                          <rect x="2" y="9" width="3" height="5" />
+                          <rect x="6.5" y="5" width="3" height="9" />
+                          <rect x="11" y="2" width="3" height="12" />
+                        </>
+                      )}
+                    </svg>
+                  </div>
                   <strong>{t.name}</strong>
                   <span>{t.desc}</span>
                 </button>
@@ -231,7 +404,7 @@ export function WorkspacePage() {
             {messages.map((m) => (
               <div key={m.id} className={`workspace-msg ${m.role}`}>
                 <div className={`workspace-msg-avatar ${m.role}`}>
-                  {m.role === "assistant" ? "AI" : "U"}
+                  {m.role === 'assistant' ? 'AI' : 'U'}
                 </div>
                 <div className="workspace-msg-bubble">{m.content}</div>
               </div>
@@ -240,7 +413,9 @@ export function WorkspacePage() {
               <div className="workspace-msg assistant">
                 <div className="workspace-msg-avatar assistant">AI</div>
                 <div className="workspace-msg-bubble sending">
-                  <span className="dot" /><span className="dot" /><span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
                 </div>
               </div>
             )}
@@ -252,8 +427,12 @@ export function WorkspacePage() {
         {isGenerating && progress && (
           <div className="workspace-progress-bar">
             <div className="workspace-progress-info">
-              <span><strong>{progress.state}</strong> · {progress.percent}%</span>
-              <button className="workspace-stop-btn" onClick={handleInterrupt}>停止</button>
+              <span>
+                <strong>{progress.state}</strong> · {progress.percent}%
+              </span>
+              <button className="workspace-stop-btn" onClick={handleInterrupt}>
+                停止
+              </button>
             </div>
             <div className="workspace-progress-track">
               <div className="workspace-progress-fill" style={{ width: `${progress.percent}%` }} />
@@ -265,38 +444,57 @@ export function WorkspacePage() {
         {prototypeUrl && (
           <div className="workspace-prototype-banner">
             <span>✅ 原型已就绪</span>
-            <button className="btn btn-primary" style={{ padding: "6px 16px", fontSize: 13 }}
+            <button
+              className="btn btn-primary"
+              style={{ padding: '6px 16px', fontSize: 13 }}
               onClick={async () => {
                 try {
                   const html = await api.fetchPrototype(Number(prototypeUrl), optsRef.current);
-                  const blob = new Blob([html], { type: "text/html" });
-                  window.open(URL.createObjectURL(blob), "_blank");
+                  const blob = new Blob([html], { type: 'text/html' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `prototype-${prototypeUrl}.html`;
+                  a.click();
+                  URL.revokeObjectURL(url);
                 } catch (e) {
-                  setError(e instanceof ApiError ? e.message : "加载原型失败");
+                  setError(e instanceof ApiError ? e.message : '加载原型失败');
                 }
-              }}>
-              预览应用
+              }}
+            >
+              下载原型
             </button>
           </div>
         )}
 
         {/* Error banner (always visible) */}
         {error && (
-          <div className="workspace-error" style={{ padding: "8px 16px", color: "var(--error)", fontSize: 13 }}>
+          <div
+            className="workspace-error"
+            style={{ padding: '8px 16px', color: 'var(--error)', fontSize: 13 }}
+          >
             {error}
           </div>
         )}
 
         {/* Input bar (always visible per design workspace-v1.html) */}
         <div className="workspace-input-bar">
-          <input className="workspace-input" type="text" value={input}
+          <input
+            className="workspace-input"
+            type="text"
+            value={input}
             ref={inputRef}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="描述你的应用需求..." disabled={isGenerating} />
-          <button className="workspace-send-btn" onClick={sendMessage}
-            disabled={isGenerating || !input.trim()}>
-            {isGenerating ? "生成中..." : "发送"}
+            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="描述你的应用需求..."
+            disabled={isGenerating}
+          />
+          <button
+            className="workspace-send-btn"
+            onClick={sendMessage}
+            disabled={isGenerating || !input.trim()}
+          >
+            {isGenerating ? '生成中...' : '发送'}
           </button>
         </div>
       </main>

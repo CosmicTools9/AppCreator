@@ -7,11 +7,20 @@
 use app_agent::mocks::MockLlmService;
 use app_agent::{AppAgent, ConversationContext};
 use app_creator::chat;
-use common::testing::connect_test_db;
+use common::testing::{connect_test_db, setup_test_schema_light};
 
+
+/// Connect to test DB and verify we're on a `*_test` database.
+async fn setup() -> sqlx::PgPool {
+    let pool = connect_test_db().await;
+    setup_test_schema_light(&pool)
+        .await
+        .expect("Tests must run against a *_test database (set DATABASE_URL accordingly)");
+    pool
+}
 #[tokio::test]
 async fn chat_session_create_get_roundtrip() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
 
     let row = chat::create_session(&pool, "Integration test session", None, "Alioth")
         .await
@@ -30,7 +39,7 @@ async fn chat_session_create_get_roundtrip() {
 
 #[tokio::test]
 async fn chat_message_add_and_list_roundtrip() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
 
     let session = chat::create_session(&pool, "Message roundtrip", None, "Alioth")
         .await
@@ -51,7 +60,7 @@ async fn chat_message_add_and_list_roundtrip() {
 
 #[tokio::test]
 async fn agent_context_save_and_load_roundtrip() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
 
     let session = chat::create_session(&pool, "Context roundtrip", None, "Alioth")
         .await
@@ -75,7 +84,7 @@ async fn agent_context_save_and_load_roundtrip() {
 
 #[tokio::test]
 async fn list_sessions_filters_by_namespace_and_orders_desc() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
 
     let uniq = chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default();
     let ns = format!("ListTest-{uniq}");
@@ -116,7 +125,7 @@ async fn list_sessions_filters_by_namespace_and_orders_desc() {
 
 #[tokio::test]
 async fn app_agent_single_step_with_mock_llm() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
 
     let session = chat::create_session(&pool, "Agent step", None, "Alioth")
         .await
@@ -145,7 +154,7 @@ async fn app_agent_single_step_with_mock_llm() {
 }
 #[tokio::test]
 async fn claim_session_sequential() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
     chat::ensure_app_creator_tables(&pool).await.unwrap();
     chat::ensure_chat_session_status_values(&pool).await.unwrap();
     let session = chat::create_session(&pool, "Claim test", None, "Alioth")
@@ -157,7 +166,7 @@ async fn claim_session_sequential() {
 
 #[tokio::test]
 async fn owner_check_denies_ownerless() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
     chat::ensure_app_creator_tables(&pool).await.unwrap();
     let session = chat::create_session(&pool, "Owner test", None, "Alioth")
         .await.expect("create_session failed");
@@ -166,7 +175,7 @@ async fn owner_check_denies_ownerless() {
 
 #[tokio::test]
 async fn owner_check_allows_exact() {
-    let pool = connect_test_db().await;
+    let pool = setup().await;
     chat::ensure_app_creator_tables(&pool).await.unwrap();
     let session = chat::create_session_with_owner(&pool, "Owner test", None, "Alioth", 42)
         .await.expect("create_session_with_owner failed");

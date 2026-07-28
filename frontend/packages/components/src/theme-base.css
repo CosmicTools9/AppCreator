@@ -1,0 +1,388 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  /* 圆角体系 — 与 DESIGN_TOKENS.md §4 对齐 */
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.5rem;    /* 8px */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-xl: 1rem;      /* 16px */
+
+  /* 间距 token — 4pt 基线网格 */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+
+  /* Elevation 阴影 — 与 GATEWAY_DESIGN_TOKENS §1.4 对齐 */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  /* 布局尺寸 — 与 gate-layout.css / meta-layout.css 实际实现一致 */
+  --topbar-height: 3.5rem;      /* 56px — h-14，与 Framework TopBar 一致 */
+  --sidebar-width: 15rem;      /* 240px — w-60 */
+  --sidebar-collapsed-width: 4rem; /* 64px — w-16 */
+  --branding-height: 3.5rem;    /* 56px — h-14 */
+
+  /* 字体栈引用 — 各平台可覆盖 */
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* ───────────────────────────────────────────
+   默认 Light Theme fallback
+   当应用/模块未自行定义主题变量时使用。
+   模块通过 .mod-{name} 作用域覆盖 --primary 等变量。
+   Gateway 应用通过内联 style 注入 accentBarColor 实现外壳同步换色。
+   Meta 独立应用通过 main.css 的 html:root / html.dark 覆盖本 fallback。
+   ─────────────────────────────────────────── */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  /* 默认主色与 Gateway 品牌蓝一致；模块通过 .mod-{name} 覆盖 */
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 217 91% 53%;
+  --primary-bg: 217 91% 60% / 0.08;
+  --primary-bg-hover: 217 91% 60% / 0.12;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-hover: 0 70% 45%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 217 91% 60%;
+  --radius: 0.5rem;
+
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+
+  /* Semantic badge/tag scale — shared across modules */
+  --badge-success-bg: 160 84% 92%;
+  --badge-success-fg: 160 84% 25%;
+  --badge-warning-bg: 38 92% 92%;
+  --badge-warning-fg: 38 92% 30%;
+  --badge-destructive-bg: 0 84% 92%;
+  --badge-destructive-fg: 0 84% 35%;
+  --badge-info-bg: 217 91% 92%;
+  --badge-info-fg: 217 91% 35%;
+  --badge-muted-bg: 215 16% 92%;
+  --badge-muted-fg: 215 16% 35%;
+
+  /* Shadow & overlay scale — shared across modules */
+  --shadow-color: 0 0% 0%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.05);
+  --shadow-sm: 0 1px 6px hsl(var(--shadow-color) / 0.08);
+  --shadow: 0 4px 16px hsl(var(--shadow-color) / 0.08);
+  --shadow-lg: 0 12px 32px hsl(var(--shadow-color) / 0.20);
+  --shadow-xl: 0 12px 48px hsl(var(--shadow-color) / 0.20);
+  --shadow-2xl: 0 12px 48px hsl(var(--shadow-color) / 0.25);
+  --overlay: hsl(var(--shadow-color) / 0.65);
+
+  /* Categorical color scale — shared across modules for dim-chips, charts, split-bar segments */
+  --categorical-1: 243 75% 59%;
+  --categorical-2: 211 100% 50%;
+  --categorical-3: 142 71% 45%;
+  --categorical-4: 28 95% 50%;
+  --categorical-5: 0 80% 55%;
+  --categorical-6: 280 65% 55%;
+  --categorical-7: 335 75% 55%;
+  --categorical-8: 174 70% 41%;
+}
+/* ───────────────────────────────────────────
+   Dark Theme
+   当 <html class="dark"> 时激活。
+   模块在 .mod-{name} 作用域下只需覆盖 --primary 系列变量，
+   背景/文字/边框等中性变量由本 .dark 块统一提供。
+   ─────────────────────────────────────────── */
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 217 91% 53%;
+  --primary-bg: 217 91% 60% / 0.15;
+  --primary-bg-hover: 217 91% 60% / 0.20;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-hover: 0 62.8% 40%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
+  --radius: 0.5rem;
+
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+
+  /* Semantic badge/tag scale — shared across modules */
+  --badge-success-bg: 160 84% 15%;
+  --badge-success-fg: 160 84% 75%;
+  --badge-warning-bg: 38 92% 15%;
+  --badge-warning-fg: 38 92% 75%;
+  --badge-destructive-bg: 0 84% 15%;
+  --badge-destructive-fg: 0 84% 75%;
+  --badge-info-bg: 217 91% 15%;
+  --badge-info-fg: 217 91% 75%;
+  --badge-muted-bg: 215 16% 20%;
+  --badge-muted-fg: 215 16% 75%;
+
+  /* Shadow & overlay scale — shared across modules */
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.12);
+  --shadow-sm: 0 1px 6px hsl(var(--shadow-color) / 0.20);
+  --shadow: 0 4px 16px hsl(var(--shadow-color) / 0.20);
+  --shadow-lg: 0 12px 32px hsl(var(--shadow-color) / 0.35);
+  --shadow-xl: 0 12px 48px hsl(var(--shadow-color) / 0.35);
+  --shadow-2xl: 0 12px 48px hsl(var(--shadow-color) / 0.40);
+  --overlay: hsl(var(--shadow-color) / 0.75);
+
+  /* Categorical color scale — shared across modules for dim-chips, charts, split-bar segments */
+  --categorical-1: 243 75% 59%;
+  --categorical-2: 211 100% 50%;
+  --categorical-3: 142 71% 45%;
+  --categorical-4: 28 95% 50%;
+  --categorical-5: 0 80% 55%;
+  --categorical-6: 280 65% 55%;
+  --categorical-7: 335 75% 55%;
+  --categorical-8: 174 70% 41%;
+}
+/* 模块在暗黑模式下提高主色背景透明度，确保在深色背景上可见。
+   模块可通过 `.dark .mod-{name}` 覆盖此默认值。 */
+.dark [class^="mod-"] {
+  --primary-bg: hsl(var(--primary) / 0.15);
+  --primary-bg-hover: hsl(var(--primary) / 0.22);
+}
+
+@layer base {
+  /* ───────────────────────────────────────────
+     Local Self-Hosted Fonts (2026-06-14)
+     Inter — Latin Display/Body
+     JetBrains Mono — Code/IDs/Timestamps
+     Files under Framework/frontend/public/fonts/
+     Reason: Google Fonts is unreachable in mainland China; all fonts MUST be served
+     from the same origin (see docs/specs/FRONTEND_SPEC.md §10.0.1 国内访问性).
+     ─────────────────────────────────────────── */
+  @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/fonts/inter-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/fonts/inter-500.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("/fonts/inter-600.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/fonts/inter-700.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("/fonts/jetbrains-mono-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/fonts/jetbrains-mono-500.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("/fonts/jetbrains-mono-600.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("/fonts/jetbrains-mono-700.woff2") format("woff2");
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    padding: 0;
+    font-family:
+      "Inter",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "PingFang SC",
+      "Hiragino Sans GB",
+      "Microsoft YaHei",
+      "WenQuanYi Micro Hei",
+      sans-serif;
+  }
+  button, input, textarea, select {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* 无障碍: 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 隐藏滚动条 — 用于横向溢出但不希望显示滚动条的可滚动容器
+   设计决策 (docs/specs/HTML_DESIGN_SPEC.md):
+   横向 overflow 容器（如 TopBar tabs / 内容区横向列表）必须配 hide-scrollbar
+   工具类，避免破坏 topbar / 横向导航的视觉简洁性。
+   - Firefox: scrollbar-width: none
+   - IE/old Edge: -ms-overflow-style: none
+   - WebKit (Chrome/Safari): ::-webkit-scrollbar { display: none }
+*/
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/old Edge */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+.hide-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hide-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* 选中文字样式 */
+::selection {
+  background: hsl(var(--primary) / 0.2);
+  color: hsl(var(--foreground));
+}
+
+/* 统一图标容器 */
+.icon-container {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}

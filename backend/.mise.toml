@@ -2,7 +2,7 @@
 setup = "cargo fetch && cargo check"
 dev = "bash ../scripts/lib/guard-mise-task.sh AppCreator -- cargo run"
 build = "cargo build --release"
-test = "bash ../scripts/lib/guard-mise-task.sh AppCreator --mode test -- cargo test"
+test = "DATABASE_URL=postgres://isahl@localhost/aliothstudio_test bash ../scripts/lib/guard-mise-task.sh AppCreator --mode test -- cargo test"
 lint = "cargo clippy -- -D warnings && cargo fmt --check"
 fmt = "cargo fmt"
 clean = "cargo clean"

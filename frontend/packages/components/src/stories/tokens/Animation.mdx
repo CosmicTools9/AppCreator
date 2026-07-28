@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Design Tokens/Animation" />
+
+# Animation
+
+Motion tokens for consistent timing and easing across the design system.
+
+## Duration
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `duration.0` | 0ms | Instant |
+| `duration.75` | 75ms | Micro interactions |
+| `duration.100` | 100ms | Quick feedback |
+| `duration.150` | 150ms | Button presses |
+| `duration.200` | 200ms | Hover states |
+| `duration.300` | 300ms | Transitions |
+| `duration.500` | 500ms | Entrances |
+| `duration.700` | 700ms | Emphasis |
+| `duration.1000` | 1000ms | Dramatic |
+
+## Easing
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `ease.linear` | `[0, 0, 1, 1]` | Continuous motion |
+| `ease.in` | `[0.4, 0, 1, 1]` | Decelerate out |
+| `ease.out` | `[0, 0, 0.2, 1]` | Accelerate in |
+| `ease.in-out` | `[0.4, 0, 0.2, 1]` | Smooth both ways |
+
+## Usage
+
+```css
+.my-component {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+```tsx
+<div className="transition-all duration-200 ease-in-out">
+  Smooth transition
+</div>
+```

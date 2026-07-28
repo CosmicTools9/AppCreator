@@ -552,8 +552,37 @@ pub fn compiled_module_ids() -> std::collections::HashSet<String> {
         .unwrap_or_else(|_| "../../Gateway/backend/Cargo.toml".to_string());
     let content = match std::fs::read_to_string(&cargo_path) {
         Ok(c) => c,
-        Err(e) => {
-            common::telemetry::warn!("compiled_module_ids: failed to read {}: {}", cargo_path, e);
+        Err(_) => {
+            // 3. AppCreator standalone fallback: scan Pre-Proc/Sources/Modules/ for existing module IDs
+            common::telemetry::info!(
+                "Cargo.toml not found; falling back to Pre-Proc/Sources/Modules/ scan"
+            );
+            let preproc_path = std::env::var("PREPROC_MODULES_PATH")
+                .unwrap_or_else(|_| "../../Pre-Proc".to_string());
+            if let Ok(entries) = std::fs::read_dir(&preproc_path) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        let modules_dir = entry.path().join("Sources").join("Modules");
+                        if modules_dir.is_dir() {
+                            if let Ok(mod_entries) = std::fs::read_dir(&modules_dir) {
+                                for mod_entry in mod_entries.flatten() {
+                                    if mod_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                                        if let Some(name) = mod_entry.file_name().to_str() {
+                                            ids.insert(name.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !ids.is_empty() {
+                common::telemetry::info!(
+                    "Loaded {} module IDs from Pre-Proc/Sources/Modules/ scan",
+                    ids.len()
+                );
+            }
             return ids;
         }
     };

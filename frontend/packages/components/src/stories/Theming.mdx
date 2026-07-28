@@ -1,0 +1,88 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Getting Started/Theming" />
+
+# Theming
+
+AliothStudio components support light, dark, and system themes using CSS variables and next-themes.
+
+## Theme Provider
+
+Wrap your application with the `ThemeProvider`:
+
+```tsx
+import { ThemeProvider } from '@alioth/components';
+
+function App() {
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="app-theme">
+      <YourApp />
+    </ThemeProvider>
+  );
+}
+```
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `defaultTheme` | `'light' \| 'dark' \| 'system'` | `'system'` | Default theme |
+| `storageKey` | `string` | `'theme'` | localStorage key |
+| `enableSystem` | `boolean` | `true` | Enable system preference |
+| `disableTransitionOnChange` | `boolean` | `false` | Disable transition animations |
+
+## Theme Toggle
+
+Use the `ThemeToggle` component or build your own:
+
+```tsx
+import { ThemeToggle, useTheme } from '@alioth/components';
+
+// Built-in toggle
+<ThemeToggle />
+
+// Custom toggle
+function CustomToggle() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+      Toggle Theme
+    </button>
+  );
+}
+```
+
+## CSS Variables
+
+Themes are implemented using CSS custom properties:
+
+```css
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --primary: 217 91% 60%;
+  /* ... */
+}
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  /* ... */
+}
+```
+
+## Custom Themes
+
+Create custom themes by overriding CSS variables:
+
+```css
+[data-theme="custom"] {
+  --primary: 25 95% 53%; /* Orange */
+  --radius: 0.75rem;     /* More rounded */
+}
+```
+
+## Design Tokens
+
+View all available design tokens in the **Design Tokens** section.

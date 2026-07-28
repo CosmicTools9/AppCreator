@@ -1,0 +1,690 @@
+/* ═══════════════════════════════════════════
+ * ⚠️ DEPRECATED (原型侧) — 2026-07-07
+ *
+ * 废弃原因：al-* 前缀类是面向人的命名抽象。
+ * AI 生成原型 HTML 不需要中间层——直接写 Tailwind v4 工具类。
+ *
+ * 替代：新建原型只依赖 tailwind-utilities.css。
+ *   遗留原型继续工作，新原型禁止引用。
+ *
+ * 生产保留：Meta/frontend/src/styles/main.css @import 保留，
+ *   Meta React 组件中的 al-* 类待后续重构。
+ * ═══════════════════════════════════════════ */
+
+/* ── CSS 变量默认值（Bee Theme，暗色优先） ──────── */
+:root, html.dark {
+  --background: 30 25% 6%;
+  --foreground: 45 40% 95%;
+  --card: 30 20% 8%;
+  --card-foreground: 45 40% 95%;
+  --popover: 30 20% 8%;
+  --popover-foreground: 45 40% 95%;
+  --primary: 45 100% 52%;
+  --primary-foreground: 30 100% 10%;
+  --secondary: 30 20% 12%;
+  --secondary-foreground: 45 40% 95%;
+  --muted: 30 20% 12%;
+  --muted-foreground: 30 15% 60%;
+  --accent: 30 20% 12%;
+  --accent-foreground: 45 40% 95%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 20% 18%;
+  --input: 30 20% 18%;
+  --ring: 45 100% 52%;
+  --radius: 0.75rem;
+  --sidebar: 30 20% 10%;
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 30 100% 10%;
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+}
+
+/* Light 变体 — 用于模块预览场景 */
+html.light {
+  --background: 45 30% 97%;
+  --foreground: 30 25% 12%;
+  --card: 45 20% 100%;
+  --card-foreground: 30 25% 12%;
+  --popover: 45 20% 100%;
+  --popover-foreground: 30 25% 12%;
+  --primary: 45 100% 42%;
+  --primary-foreground: 45 100% 98%;
+  --secondary: 45 15% 90%;
+  --secondary-foreground: 30 20% 25%;
+  --muted: 45 15% 90%;
+  --muted-foreground: 30 15% 45%;
+  --accent: 45 15% 88%;
+  --accent-foreground: 30 25% 12%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 15% 85%;
+  --input: 30 15% 85%;
+  --ring: 45 100% 42%;
+  --radius: 0.75rem;
+  --sidebar: 45 20% 98%;
+  --success: 160 60% 38%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 30 100% 10%;
+  --info: 217 80% 55%;
+  --info-foreground: 0 0% 100%;
+}
+/* ── Meta 布局组件 ──────────────────────────── */
+
+/* ═══════════════════════════════════════════
+ * al-* class system — Alioth Layout for Meta Admin
+ *
+ * 生产代码参考：Meta/frontend/src/layout/MainLayout.tsx + Sidebar.tsx
+ * 导航管理内容区：Sidebar 控制 .al-content-area 中渲染的子页面
+ * 原型按 item 分割：每项导航对应一个独立的页面组件
+ * ═══════════════════════════════════════════ */
+
+/* ── 根容器 ──────────────────────────────── */
+.al-root {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: hsl(var(--background));
+}
+
+/* ── Sidebar ──────────────────────────────── */
+/* 生产参考: Sidebar.tsx — h-screen bg-card border-r border-border flex flex-col */
+.al-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 240px;              /* w-60 */
+  border-right: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  flex-shrink: 0;
+  transition: width 0.3s;
+  overflow: hidden;
+}
+.al-sidebar[data-collapsed="true"],
+.al-sidebar.collapsed {
+  width: 64px;               /* w-16 */
+}
+
+/* collapsed 隐藏文字 */
+.al-sidebar[data-collapsed="true"] .al-branding .al-name,
+.al-sidebar[data-collapsed="true"] .al-branding .al-sub,
+.al-sidebar[data-collapsed="true"] .al-nav-group-title,
+.al-sidebar[data-collapsed="true"] .al-nav-item > .nav-label,
+.al-sidebar[data-collapsed="true"] .al-nav-item > .badge,
+.al-sidebar.collapsed .al-branding .al-name,
+.al-sidebar.collapsed .al-branding .al-sub,
+.al-sidebar.collapsed .al-nav-group-title,
+.al-sidebar.collapsed .al-nav-item > .nav-label,
+.al-sidebar.collapsed .al-nav-item > .badge {
+  display: none;
+}
+
+/* ── Branding（HexaGraph logo + Meta Admin） ── */
+/* 56px — h-14，与 gate-layout.css 统一 */
+.al-branding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.al-branding .hexagon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(to bottom right, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.al-branding .hexagon-wrap svg {
+  width: 20px;
+  height: 20px;
+  color: hsl(var(--primary-foreground));
+}
+.al-branding .name-area {
+  overflow: hidden;
+  min-width: 0;
+}
+.al-branding .al-name {
+  font-size: 14px;           /* text-sm */
+  font-weight: 600;          /* font-semibold */
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: hsl(var(--foreground));
+  font-family: var(--font-display, ui-monospace, monospace);
+}
+.al-branding .al-sub {
+  font-size: 12px;           /* text-xs */
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 导航区 ───────────────────────────────── */
+/* 生产参考: Sidebar.tsx — flex-1 overflow-y-auto py-4 px-3 space-y-1 */
+.al-nav-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 导航分组标题 — 如 "alioth" "external" 等顶层组 */
+/* 生产参考: Sidebar.tsx — px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60 */
+.al-nav-group-title {
+  padding: 6px 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground) / 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.al-nav-group-title:hover {
+  color: hsl(var(--foreground));
+}
+
+/* 导航项 */
+/* 生产参考: Sidebar.tsx — w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium */
+/* 状态参考: active → text-primary / 非 active → text-muted-foreground hover:text-foreground hover:bg-accent */
+.al-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;           /* text-sm */
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  text-align: left;
+  width: 100%;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.al-nav-item:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+.al-nav-item.active,
+.al-nav-item[data-active="true"] {
+  color: hsl(var(--primary));
+  font-weight: 600;
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.02));
+  border-left: 2px solid hsl(var(--primary));
+  box-shadow: 4px 0 16px hsl(var(--primary) / 0.08);
+}
+
+.al-nav-item .nav-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.al-nav-item .nav-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+.al-nav-item .nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.al-nav-item .nav-badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-md);
+  font-size: 10px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+}
+.al-nav-item .nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  flex-shrink: 0;
+}
+.al-nav-item .chevron {
+  width: 14px;
+  height: 14px;
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.al-nav-item .chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* ── 子菜单 ────────────────────────────────── */
+.al-submenu {
+  margin-left: 16px;
+  border-left: 1px solid hsl(var(--border));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+}
+.al-submenu .al-nav-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+.al-submenu .al-nav-item:hover {
+  color: hsl(var(--foreground) / 0.9);
+  background: hsl(var(--accent) / 0.5);
+}
+.al-submenu .al-nav-item.active {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+
+/* collapsed 下导航项居中对齐 */
+.al-sidebar[data-collapsed="true"] .al-nav-item,
+.al-sidebar.collapsed .al-nav-item {
+  justify-content: center;
+  padding: 10px 0;
+  width: 100%;
+}
+.al-sidebar[data-collapsed="true"] .al-submenu,
+.al-sidebar.collapsed .al-submenu {
+  display: none;
+}
+
+/* ── Sidebar 底部 ── */
+.al-sidebar-foot {
+  border-top: 1px solid hsl(var(--border));
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  justify-content: center;
+}
+
+.al-collapse-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.al-collapse-btn:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+.al-collapse-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── 主区 ─────────────────────────────────── */
+/* 生产参考: MainLayout.tsx — flex-1 flex flex-col min-w-0 */
+.al-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── TopBar ───────────────────────────────── */
+/* 生产参考: MainLayout.tsx — h-14 border-b border-border flex items-center justify-between px-6 bg-card */
+.al-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 56px;              /* h-14 — 与 gate-layout.css 统一 */
+  padding: 0 24px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  flex-shrink: 0;
+}
+.al-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.al-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.al-topbar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  font-family: var(--font-display, ui-monospace, monospace);
+}
+.al-topbar-sub {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.al-topbar-sep {
+  color: hsl(var(--muted-foreground) / 0.3);
+  font-size: 16px;
+}
+
+/* ── 强调条 ── */
+.al-accent-bar {
+  height: 3px;
+  background: hsl(var(--primary));
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ── 内容区（nav 控制的渲染目标） ──────────── */
+/* Sidebar 的导航项通过切换 state 改变 al-content-area 中渲染的子组件 */
+.al-content-area {
+  flex: 1;
+  overflow-y: auto;
+  background: hsl(var(--muted) / 0.3);  /* bg-muted/30 — 与生产一致 */
+}
+.al-content-area::-webkit-scrollbar {
+  width: 6px;
+}
+.al-content-area::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 3px;
+}
+
+
+/* ── Content Section（nav-item ↔ content-area 映射） ── */
+/* 每个 .al-content-section 对应一个导航项，通过 data-section 属性关联 */
+.al-content-section {
+  display: none;
+  height: 100%;
+  min-height: 0;
+}
+.al-content-section.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Content 切换过渡 ── */
+.al-content-fade {
+  animation: al-fade-in 0.2s ease-out;
+}
+@keyframes al-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Content 占位态（无选中 nav-item） ── */
+.al-content-placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%;
+  color: hsl(var(--muted-foreground)); gap: 12px; font-size: 14px;
+}
+.al-content-placeholder .icon {
+  width: 48px; height: 48px; border-radius: var(--radius-xl);
+  background: hsl(var(--primary) / 0.08);
+  display: flex; align-items: center; justify-content: center;
+  color: hsl(var(--primary));
+}
+
+/* ── Content 加载态 ── */
+.al-content-loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; gap: 8px;
+  color: hsl(var(--muted-foreground)); font-size: 13px;
+}
+/* ── 双栏布局（list + detail） ────────────── */
+/* 列表+详情型页面骨架 */
+.al-two-pane {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+.al-list-pane {
+  border-right: 1px solid hsl(var(--border));
+  overflow-y: auto;
+  background: hsl(var(--card));
+  min-height: 0;
+}
+.al-detail-pane {
+  overflow-y: auto;
+  padding: 20px 24px;
+  min-height: 0;
+}
+
+/* ── 页面容器 ── */
+.al-page {
+  padding: 20px 24px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.al-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+.al-page-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.al-page-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+.al-page-header .al-page-sub {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.al-page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── 基础按钮 ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.btn-primary:hover {
+  filter: brightness(1.15);
+}
+.btn-ghost {
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+}
+.btn-ghost:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid hsl(var(--border));
+  background: transparent;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+}
+.btn-outline:hover {
+  background: hsl(var(--accent));
+}
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.btn-xs {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+  white-space: nowrap;
+}
+.btn-danger:hover {
+  filter: brightness(1.12);
+}
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+}
+.btn-icon:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── 卡片 ── */
+.card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px); /* 12px + 2px = 14px, Meta 稍大圆角 */
+  overflow: hidden;
+}
+
+
+/* ── Tabs ─────────────────────────────────── */
+.al-tabs { display: flex; align-items: center; gap: 2px; overflow-x: auto; flex-shrink: 0; }
+.al-tab { position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: hsl(var(--foreground)); cursor: pointer; border: none; background: transparent; white-space: nowrap; transition: all 0.1s; border-radius: 6px; }
+.al-tab:hover { background: hsl(var(--accent)); }
+.al-tab.active { background: hsl(var(--primary) / 0.08); color: hsl(var(--primary)); font-weight: 600; }
+
+/* ── 状态指示点 ── */
+.al-status-dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 6px currentColor; flex-shrink: 0; }
+
+/* ── 终端/代码块 ── */
+.al-terminal { font-family: var(--font-display, "JetBrains Mono", ui-monospace, monospace); background: hsl(var(--background)); border: 1px solid hsl(var(--border)); border-radius: calc(var(--radius) + 2px); padding: 12px 16px; overflow-x: auto; font-size: 12px; line-height: 1.6; color: hsl(var(--foreground)); }
+.al-terminal::before { content: ""; display: block; height: 2px; background: linear-gradient(90deg, hsl(var(--primary)), transparent); margin: -13px -17px 12px; border-radius: calc(var(--radius) + 2px) calc(var(--radius) + 2px) 0 0; }
+
+/* ── 数据网格 ── */
+.al-data-grid { width: 100%; border-collapse: collapse; }
+.al-data-grid th { font-family: var(--font-display, "JetBrains Mono", ui-monospace, monospace); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); text-align: left; padding: 8px 12px; font-weight: 700; }
+.al-data-grid td { padding: 10px 12px; border-bottom: 1px solid hsl(var(--border) / 0.5); font-size: 13px; }
+.al-data-grid tr:hover td { background: hsl(var(--primary) / 0.04); }
+
+/* ── 本体层维度标签 ── */
+.al-layer-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; border: 1px solid hsl(var(--border) / 0.3); font-family: var(--font-display, "JetBrains Mono", ui-monospace, monospace); letter-spacing: 0.04em; color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); }
+.al-layer-chip .dot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* ── 玻璃态表面 ── */
+.al-glass-surface { background: hsl(var(--card) / 0.72); border: 1px solid hsl(var(--border) / 0.5); }
+@supports (backdrop-filter: blur(12px)) { .al-glass-surface { background: hsl(var(--card) / 0.55); backdrop-filter: blur(16px) saturate(1.15); } }
+
+/* ── 渐变主按钮 ── */
+.al-btn-primary-glow { background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.8)); box-shadow: 0 4px 20px hsl(var(--primary) / 0.25); color: hsl(var(--primary-foreground)); }
+.al-btn-primary-glow:hover { background: linear-gradient(to right, hsl(var(--primary) / 0.9), hsl(var(--primary) / 0.7)); box-shadow: 0 6px 30px hsl(var(--primary) / 0.35); transform: translateY(-1px); }
+
+/* ── 思考脉冲 ── */
+@keyframes al-think-pulse { 0%,100%{opacity:.25;transform:scale(1)} 50%{opacity:.7;transform:scale(1.3)} }
+.al-think-dot { width:5px; height:5px; border-radius:50%; background:hsl(var(--muted-foreground)); animation:al-think-pulse 1.4s infinite ease-in-out; }
+.al-think-dot:nth-child(2){animation-delay:.2s} .al-think-dot:nth-child(3){animation-delay:.4s}
+
+/* ── 脉冲光晕 ── */
+@keyframes al-pulse-glow { 0%,100%{opacity:1;box-shadow:0 0 20px hsl(var(--primary)/.3)} 50%{opacity:.8;box-shadow:0 0 40px hsl(var(--primary)/.5)} }
+.al-pulse-glow { animation:al-pulse-glow 2s ease-in-out infinite; }
+
+/* ── 全局基础样式（Bee Theme 暗色优先） ── */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; padding: 0; font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif; background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+*, *::before, *::after { box-sizing: border-box; }
+button, input, textarea, select { font: inherit; color: inherit; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+::selection { background: hsl(var(--primary) / 0.3); color: hsl(var(--foreground)); }
+*:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0px 1000px hsl(var(--card)) inset; -webkit-text-fill-color: hsl(var(--card-foreground)); caret-color: hsl(var(--card-foreground)); transition: background-color 5000s ease-in-out 0s; }
+@media (prefers-reduced-motion: reduce) { *,::before,::after { animation-duration: 0.01ms!important; animation-iteration-count: 1!important; transition-duration: 0.01ms!important; scroll-behavior: auto!important; } }
