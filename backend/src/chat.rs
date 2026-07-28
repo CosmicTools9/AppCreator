@@ -332,6 +332,104 @@ pub async fn ensure_app_creator_tables(pool: &PgPool) -> Result<(), sqlx::Error>
     Ok(())
 }
 
+/// Ensure isahl_meta schema exists (idempotent, standalone seed).
+/// If the `isahl_meta` schema is absent and the `isahl` schema exists,
+/// load the schema DDL from backend/ddl/002_isahl_meta_schema.sql.
+pub async fn ensure_isahl_meta_schema(pool: &PgPool) -> Result<(), String> {
+    // 1. Check if isahl_meta schema already exists
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'isahl_meta')"
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Failed to check isahl_meta schema: {e}"))?;
+
+    if exists {
+        log::info!("isahl_meta schema already exists, ensuring seed data...");
+        // Even if schema exists, ensure business seed data is loaded (idempotent via ON CONFLICT DO NOTHING)
+        load_seed_data_if_empty(pool, "./ddl/003_isahl_meta_seed_collections.sql", "isahl_meta.meta_collections").await?;
+        load_seed_data_if_empty(pool, "./ddl/004_isahl_meta_seed_fields.sql", "isahl_meta.meta_fields").await?;
+        return Ok(());
+    }
+
+    // 2. Check if isahl schema exists (precondition: AppCreator needs isahl schema)
+    let has_isahl: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = 'isahl')"
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Failed to check isahl schema: {e}"))?;
+
+    if !has_isahl {
+        return Err("isahl schema not found — AppCreator requires isahl schema to function".into());
+    }
+
+    // 3. Load and execute DDL seed as a single batch (PostgreSQL natively handles multi-statement input)
+    log::info!("isahl_meta schema not found, loading seed DDL from backend/ddl/002_isahl_meta_schema.sql...");
+
+    let ddl_path = std::env::var("ISAH_META_DDL_PATH")
+        .unwrap_or_else(|_| "./ddl/002_isahl_meta_schema.sql".to_string());
+
+    let content = tokio::fs::read_to_string(&ddl_path)
+        .await
+        .map_err(|e| format!("Failed to read isahl_meta DDL file {ddl_path}: {e}"))?;
+
+    sqlx::raw_sql(sqlx::AssertSqlSafe(content.as_str()))
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Failed to execute isahl_meta DDL batch: {e}"))?;
+
+    log::info!("isahl_meta schema seed completed successfully");
+
+    // Load business seed data (idempotent via ON CONFLICT DO NOTHING)
+    load_seed_data_if_empty(pool, "./ddl/003_isahl_meta_seed_collections.sql", "isahl_meta.meta_collections").await?;
+    load_seed_data_if_empty(pool, "./ddl/004_isahl_meta_seed_fields.sql", "isahl_meta.meta_fields").await?;
+
+    Ok(())
+}
+
+/// Load a seed data SQL file if the target table is empty.
+/// The SQL file must use INSERT ... ON CONFLICT DO NOTHING for idempotency.
+async fn load_seed_data_if_empty(pool: &PgPool, path: &str, table: &str) -> Result<(), String> {
+    let has_data: bool = sqlx::query_scalar(
+        sqlx::AssertSqlSafe(format!("SELECT EXISTS(SELECT 1 FROM {table} LIMIT 1)"))
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Failed to check if {table} has data: {e}"))?;
+
+    if has_data {
+        log::info!("{table} already has data, skipping seed");
+        return Ok(());
+    }
+
+    let seed_path = std::env::var("ISAH_META_SEED_PATH_PREFIX")
+        .map(|prefix| format!("{prefix}/{path}"))
+        .unwrap_or_else(|_| path.to_string());
+
+    log::info!("{table} is empty, loading seed data from {seed_path}...");
+
+    let content = tokio::fs::read_to_string(&seed_path)
+        .await
+        .map_err(|e| format!("Failed to read seed file {seed_path}: {e}"))?;
+
+    // Execute entire seed batch via raw_sql (PostgreSQL handles multi-statement input natively)
+    sqlx::raw_sql(sqlx::AssertSqlSafe(content.as_str()))
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Failed to execute seed batch for {table}: {e}"))?;
+
+    let row_count: i64 = sqlx::query_scalar(
+        sqlx::AssertSqlSafe(format!("SELECT COUNT(*) FROM {table}"))
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Failed to count {table} after seed: {e}"))?;
+
+    log::info!("{table}: loaded {row_count} rows from seed");
+    Ok(())
+}
+
 /// Create a session with owner record in one transaction.
 pub async fn create_session_with_owner(
     pool: &PgPool, title: &str, app_instance_id: Option<i64>,

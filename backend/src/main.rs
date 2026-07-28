@@ -23,7 +23,10 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to connect to database");
     let pool_data: web::Data<sqlx::PgPool> = web::Data::new(pool);
 
-    // Auto-patch: ensure required enum values + AppCreator tables at startup
+    // Auto-patch: ensure required schema + enum values + tables at startup
+    chat::ensure_isahl_meta_schema(pool_data.as_ref())
+        .await
+        .expect("Failed to ensure isahl_meta schema");
     chat::ensure_chat_session_status_values(pool_data.as_ref())
         .await
         .expect("Failed to ensure chat_session_status enum values");

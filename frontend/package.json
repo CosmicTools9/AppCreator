@@ -11,6 +11,16 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@alioth/api": "workspace:*",
+    "@alioth/components": "workspace:*",
+    "@alioth/composables": "workspace:*",
+    "@alioth/config": "workspace:*",
+    "@alioth/hooks": "workspace:*",
+    "@alioth/i18n": "workspace:*",
+    "@alioth/ontology": "workspace:*",
+    "@alioth/types": "workspace:*",
+    "@alioth/utils": "workspace:*",
+    "acorn": "^8",
     "jotai": "^2.20.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
