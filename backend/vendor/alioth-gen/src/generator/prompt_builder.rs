@@ -92,7 +92,7 @@ impl PromptBuilder {
    - `notice` 而非 `name`（名称/描述字段）
    - `code` 而非 `product_id`（编码字段，仅面向编码体系/SKU/ISBN 等场景使用）
    - `fk_source` 而非 `source_id`
-   - `fc_`/`qk_`/`sk_`/`dk_`/`ck_`/`tk_`/`ik_`/`rk_`/`ak_` 前缀分别对应外键/计量键/标量键/维度键/分类键/标签键/等级键/角色键/数组键
+   - `fk_`/`qk_`/`sk_`/`ck_`/`tk_`/`lk_`/`dk_` 前缀分别对应生命体引用/标量引用/单位/类目/标签/等级/维度键，均为单选 `bigint` 引用（`Option<i64>`），禁止定义为数组或实际值类型
    - 连字符列使用 `#[sqlx(rename = "exact-column")]`，如 `_f_`、`_t_`
    - 前端 TypeScript 允许业务概念命名
 
@@ -100,7 +100,7 @@ impl PromptBuilder {
    - 金额/数量使用 `rust_decimal::Decimal`（Rust）或 `number`（TypeScript），禁止 `f64`/`double`
    - 文本统一使用 `text` 类型，禁止 `varchar(n)`
    - 布尔标志使用 `boolean`
-   - 数组使用 `bigint[]`/`text[]`
+   - 禁止数组列模拟多对多（`bigint[]` 仅限 isahl 系统表 `ak_*` 例外，业务实体表禁止使用）；多值关联必须使用 `zc_id_lifecycle_r_*` 桥接表
 
 3. **主键策略**：
    - `isahl.zc_id_lifecycle` 及其子表：`BIGINT DEFAULT isahl.gen_next_zuid()`

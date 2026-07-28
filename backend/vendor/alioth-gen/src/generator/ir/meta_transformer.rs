@@ -9,7 +9,7 @@ use super::{
 };
 
 /// 系统自动维护的字段名称列表，生成代码时应排除
-/// 对应 `ontology_spec.md` §4.4 的 🚫 全排除 / 🔒 全排除 类别
+/// 对应 `docs/specs/ALIOTH_ONTOLOGY_SPEC.md` §4.3 的维度派生/应用绑定类别
 const SYSTEM_EXCLUDED_FIELDS: &[&str] = &[
     // 框架系统
     "id",

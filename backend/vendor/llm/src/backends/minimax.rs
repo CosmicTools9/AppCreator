@@ -6,7 +6,8 @@
 //! - Models return `reasoning_content` in assistant message when reasoning is
 //!   enabled (similar to DeepSeek).
 //! - `tool_choice: "auto"` is the default.
-//! - Some MiniMax models (M3) require `max_tokens >= 1024` or reject requests.
+//! - MiniMax M3 requires `max_completion_tokens >= 1024` or rejects requests.
+//! - MiniMax M3 deprecated `max_tokens` in favor of `max_completion_tokens`.
 //! - `response_format` accepts `{"type": "json_object"}` since 2026.
 
 use async_trait::async_trait;
@@ -29,7 +30,12 @@ struct MiniMaxRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_choice: Option<&'a str>,
     temperature: f64,
-    max_tokens: u64,
+    /// Used for M3 (deprecated max_tokens). Non-M3 uses max_tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u64>,
+    /// Used for non-M3 models (M2.7). M3 uses max_completion_tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u64>,
     top_p: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     response_format: Option<MiniMaxResponseFormat<'a>>,
@@ -234,6 +240,8 @@ impl MiniMaxBackend {
             .response_format
             .as_deref()
             .map(|t| MiniMaxResponseFormat { format_type: t });
+        // Model capability branching: M3 uses max_completion_tokens, legacy uses max_tokens.
+        let is_m3 = req.model.contains("MiniMax-M3");
 
         MiniMaxRequest {
             model: req.model.as_str(),
@@ -245,7 +253,8 @@ impl MiniMaxBackend {
                 Some("auto")
             },
             temperature: req.temperature,
-            max_tokens: req.max_tokens,
+            max_completion_tokens: if is_m3 { Some(req.max_tokens) } else { None },
+            max_tokens: if is_m3 { None } else { Some(req.max_tokens) },
             top_p: req.top_p,
             response_format,
             stream: false,
@@ -292,6 +301,16 @@ impl MiniMaxBackend {
             body: body.to_string(),
         }
     }
+
+    fn validate_max_tokens(model: &str, max_tokens: u64) -> Result<(), BackendError> {
+        if model.contains("MiniMax-M3") && max_tokens < 1024 {
+            return Err(BackendError::Config(format!(
+                "MiniMax-M3 requires max_tokens >= 1024, got {}",
+                max_tokens
+            )));
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -305,6 +324,7 @@ impl LlmBackend for MiniMaxBackend {
     }
 
     async fn complete(&self, req: CompletionRequest) -> Result<CompletionResponse, BackendError> {
+        Self::validate_max_tokens(&req.model, req.max_tokens)?;
         let url = self.endpoint();
         let body = self.build_body(&req);
         let headers = self.build_headers();
@@ -326,8 +346,8 @@ impl LlmBackend for MiniMaxBackend {
 
         let status = response.status().as_u16();
         if !response.status().is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(Self::parse_error(status, &body));
+            let body_text = response.text().await.unwrap_or_default();
+            return Err(Self::parse_error(status, &body_text));
         }
 
         let raw: serde_json::Value = response
@@ -402,4 +422,84 @@ pub const fn default_model() -> &'static str {
 
 pub const fn default_flash_model() -> &'static str {
     DEFAULT_FLASH_MODEL
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_backend() -> MiniMaxBackend {
+        MiniMaxBackend::new(
+            "test-key".to_string(),
+            None,
+            "MiniMax-M3".to_string(),
+            "MiniMax-M2.7".to_string(),
+            30,
+        )
+        .unwrap()
+    }
+
+    fn make_request(model: &str) -> CompletionRequest {
+        CompletionRequest {
+            model: model.to_string(),
+            system: None,
+            prompt: "hello".to_string(),
+            tools: vec![],
+            temperature: 1.0,
+            max_tokens: 4096,
+            top_p: 1.0,
+            frequency_penalty: 0.0,
+            presence_penalty: 0.0,
+            reasoning_effort: None,
+            response_format: None,
+        }
+    }
+
+    #[test]
+    fn m3_serializes_max_completion_tokens() {
+        let backend = make_backend();
+        let req = make_request("MiniMax-M3");
+        let body = backend.build_body(&req);
+        let json = serde_json::to_string(&body).unwrap();
+        assert!(json.contains("max_completion_tokens"), "M3 should serialize max_completion_tokens");
+        assert!(!json.contains("max_tokens"), "M3 should NOT serialize max_tokens");
+    }
+
+    #[test]
+    fn m27_serializes_max_tokens() {
+        let backend = make_backend();
+        let req = make_request("MiniMax-M2.7");
+        let body = backend.build_body(&req);
+        let json = serde_json::to_string(&body).unwrap();
+        assert!(json.contains("max_tokens"), "M2.7 should serialize max_tokens");
+        assert!(!json.contains("max_completion_tokens"), "M2.7 should NOT serialize max_completion_tokens");
+    }
+
+    #[test]
+    fn m3_rejects_less_than_1024_tokens() {
+        let result = MiniMaxBackend::validate_max_tokens("MiniMax-M3", 512);
+        assert!(result.is_err(), "M3 with max_tokens=512 should be rejected");
+        match result.unwrap_err() {
+            BackendError::Config(msg) => {
+                assert!(msg.contains("1024"), "Error should mention 1024 minimum, got: {}", msg);
+            }
+            e => panic!("Expected BackendError::Config, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn m3_accepts_1024_tokens() {
+        assert!(MiniMaxBackend::validate_max_tokens("MiniMax-M3", 1024).is_ok());
+    }
+
+    #[test]
+    fn m3_accepts_over_1024_tokens() {
+        assert!(MiniMaxBackend::validate_max_tokens("MiniMax-M3", 8192).is_ok());
+    }
+
+    #[test]
+    fn m27_ignores_validation() {
+        // M2.7 has no minimum requirement
+        assert!(MiniMaxBackend::validate_max_tokens("MiniMax-M2.7", 512).is_ok());
+    }
 }

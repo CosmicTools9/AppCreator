@@ -15,7 +15,7 @@ use llm::types::{
 #[test]
 fn test_generation_params_default() {
     let params = GenerationParams::default();
-    assert!((params.temperature - 0.7).abs() < f64::EPSILON);
+    assert!((params.temperature - 1.0).abs() < f64::EPSILON);
     assert_eq!(params.max_tokens, 4096);
     assert!((params.top_p - 1.0).abs() < f64::EPSILON);
     assert!((params.frequency_penalty - 0.0).abs() < f64::EPSILON);
@@ -98,7 +98,7 @@ fn test_generation_params_with_overrides_partial() {
     let params = GenerationParams::default();
     // Only override reasoning_effort, keep temp and tokens
     let overridden = params.with_overrides(None, None, Some("low"), None);
-    assert!((overridden.temperature - 0.7).abs() < f64::EPSILON);
+    assert!((overridden.temperature - 1.0).abs() < f64::EPSILON);
     assert_eq!(overridden.max_tokens, 4096);
     assert_eq!(overridden.reasoning_effort, ReasoningEffort::Low);
     assert_eq!(overridden.response_format, None);
@@ -158,27 +158,20 @@ fn test_tool_call_serde() {
 
 #[test]
 fn test_llm_service_config_from_env_defaults() {
-    // 清空相关环境变量，确保默认值测试
-    let vars = [
-        "LLM_PROVIDER",
-        "LLM_API_KEY",
-        "LLM_MODEL",
-        "LLM_BASE_URL",
-        "LLM_TIMEOUT_SECONDS",
-        "LLM_MAX_RETRIES",
-        "LLM_TEMPERATURE",
-        "LLM_MAX_TOKENS",
-    ];
-    for v in &vars {
+    // Clear env vars to test fallback values.
+    for v in [
+        "LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL", "LLM_BASE_URL",
+        "LLM_TIMEOUT_SECONDS", "LLM_MAX_RETRIES", "LLM_TEMPERATURE", "LLM_MAX_TOKENS",
+        "LLM_REASONING_EFFORT", "LLM_RESPONSE_FORMAT",
+    ] {
         std::env::remove_var(v);
     }
-
     let config = LlmServiceConfig::from_env();
     assert_eq!(config.provider, LlmProvider::DeepSeek);
     assert_eq!(config.model, "deepseek-v4-pro");
-    assert_eq!(config.timeout_seconds, 60);
+    assert_eq!(config.timeout_seconds, 300);
     assert_eq!(config.max_retries, 3);
-    assert!((config.generation_params.temperature - 0.7).abs() < f64::EPSILON);
+    assert!((config.generation_params.temperature - 1.0).abs() < f64::EPSILON);
     assert_eq!(config.generation_params.max_tokens, 4096);
 }
 

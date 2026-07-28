@@ -847,10 +847,7 @@ where
                 .get("default")
                 .map(|p| p.modules.len())
                 .unwrap_or(0);
-            info!(
-                "Generated extensions/profiles.yaml: {} modules",
-                module_count
-            );
+            info!("Generated extensions/profiles.yaml: {} modules", module_count);
         }
 
         // ── 4. request-no-impl/*.md ───────────────────────────────────────

@@ -8,7 +8,7 @@ license.workspace = true
 [lib]
 
 [dependencies]
-async-trait = { workspace = true }
+async-trait = "0.1"
 reqwest = { workspace = true, features = ["json", "stream"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

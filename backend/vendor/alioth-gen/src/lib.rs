@@ -130,6 +130,6 @@ pub use docgen::{DiagramType, DocGenerator, MarkdownGenerator, MermaidDiagramGen
 /// 库版本
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Alioth 平台本体规约（编译时嵌入）
-/// 供 AI Planner 在构建 OntologyModel 时参考平台已有本体结构
-pub const ALIOTH_ONTOLOGY_SPEC: &str = include_str!("../ontology_spec.md");
+// 架构原则：AppAgent 不消费文本型规约。正确性由代码化约束保证：
+// typed IR（generator::ir）、validators（app-agent/validator.rs）、
+// convention_checker、DB 实时查询（schema-info）。LLM prompt 只含蒸馏指令。

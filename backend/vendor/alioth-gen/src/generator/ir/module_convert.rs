@@ -58,6 +58,8 @@ pub fn meta_module_from_generator_model(
                     target_entity: gr.target_entity.clone(),
                     relation_type: map_relation_type(&gr.relation_type),
                     nullable: gr.nullable,
+                    via: None,
+                    target_table: None,
                 })
                 .collect();
 

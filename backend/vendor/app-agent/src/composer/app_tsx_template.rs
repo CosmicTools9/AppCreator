@@ -53,7 +53,7 @@ import {{ createPrototypeLifecycle }} from '../../../_shared/lifecycle';
 import {{
   GatewayShell,
   type ModuleTab,
-}} from '../../../../../../AppCreator/references/gateway-shell';
+}} from '../../../../../../.agents/skills/alioth-design/references/gateway-shell';
 
 const MODULE_TABS: ModuleTab[] = {module_tabs_json};
 

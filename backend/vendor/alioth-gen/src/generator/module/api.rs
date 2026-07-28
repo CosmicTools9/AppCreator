@@ -105,12 +105,6 @@ impl ModuleApiGenerator {
             files.push(self.generate_entity_model_rs(entity, module_name));
         }
 
-        // 生成 handlers/mod.rs 和 handlers/{entity}.rs
-        files.push(self.generate_handlers_mod_rs(&module.entities));
-        for entity in &module.entities {
-            files.push(self.generate_entity_handlers_rs(entity, &self.options));
-        }
-
         let c_file_count = files.len();
 
         Ok(GeneratedOutput {
@@ -126,16 +120,15 @@ impl ModuleApiGenerator {
     /// 生成 Cargo.toml
     fn generate_cargo_toml(&self, module: &MetaModule) -> GeneratedFile {
         let module_name = &module.name;
-        let lib_name = module_name.replace('-', "_");
         let has_decimal = module.entities.iter().any(|e| {
             e.fields
                 .iter()
                 .any(|f| matches!(f.field_type, MetaFieldType::Decimal))
         });
         let rust_decimal_dep = if has_decimal {
-            r#"rust_decimal = { version = "1", features = ["serde"] }"#
+            r#"rust_decimal = { workspace = true }"#
         } else {
-            r#"rust_decimal = "1""#
+            r#"rust_decimal = { workspace = true }"#
         };
         let content = format!(
             r#"[package]
@@ -144,32 +137,32 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "{lib_name}_backend"
+name = "{module_name}_backend"
 path = "src/lib.rs"
 crate-type = ["lib"]
 
 [dependencies]
-actix-web = "4"
-actix-rt = "2"
-serde = {{ version = "1", features = ["derive"] }}
-sqlx = {{ version = "0.9", features = ["runtime-tokio", "postgres", "macros", "chrono", "rust_decimal"] }}
-tokio = {{ version = "1", features = ["full"] }}
-common = {{ path = "../../../Framework/backend/common" }}
-crud = {{ path = "../../../Framework/backend/crud" }}
-chrono = {{ version = "0.4", features = ["serde"] }}
-thiserror = "2"
-log = "0.4"
-uuid = {{ version = "1", features = ["v4", "serde"] }}
-futures = "0.3"
-jsonwebtoken = "9"
+actix-web = {{ workspace = true }}
+actix-rt = {{ workspace = true }}
+serde = {{ workspace = true }}
+serde_json = {{ workspace = true }}
+sqlx = {{ workspace = true }}
+tokio = {{ workspace = true }}
+chrono = {{ workspace = true }}
+thiserror = {{ workspace = true }}
+log = {{ workspace = true }}
+uuid = {{ workspace = true }}
+futures = {{ workspace = true }}
+jsonwebtoken = {{ workspace = true }}
 {rust_decimal_dep}
+alioth-common = {{ path = "../../../Framework/backend/common" }}
+alioth-crud = {{ path = "../../../Framework/backend/crud" }}
 
 [dev-dependencies]
-actix-rt = "2"
-sqlx = {{ version = "0.9", features = ["runtime-tokio", "postgres", "macros", "chrono"] }}
+actix-rt = {{ workspace = true }}
+sqlx = {{ workspace = true }}
 "#,
             module_name = module_name,
-            lib_name = lib_name,
             rust_decimal_dep = rust_decimal_dep
         );
 
@@ -331,7 +324,6 @@ impl From<crud::CrudError> for ApiError {
             crud::CrudError::BadRequest(msg) => ApiError::BadRequest(msg),
             crud::CrudError::Unauthorized(msg) => ApiError::Unauthorized(msg),
             crud::CrudError::Internal(msg) => ApiError::Internal(msg),
-            _ => ApiError::Internal("unknown error".to_string()),
         }
     }
 }
@@ -404,7 +396,6 @@ pub use common::context::{extract_user_id, RequestContext, RequestContextExt};
     }
 
     /// 生成单个实体的模型文件
-
     /// Build AliothDbEntity impl string when table_name is set.
     fn generate_alioth_db_entity_impl(
         &self,
@@ -421,6 +412,7 @@ pub use common::context::{extract_user_id, RequestContext, RequestContextExt};
             fields = select_clause,
         ))
     }
+
 
     fn generate_entity_model_rs(&self, entity: &MetaEntity, _module_name: &str) -> GeneratedFile {
         let entity_name = &entity.name;
@@ -580,14 +572,58 @@ pub type Update{entity_name}Request = {entity_name}Input;
             }
         );
 
-        // Inject AliothDbEntity when table_name is set
+        // Inject AliothDbEntity, SQL constants, FromRow, HasReferenceJoins
         let mut content = content;
         if entity.table_name.is_some() {
-            let import_needle = "use sqlx::{FromRow};";
-            let import_replacement = "use sqlx::{FromRow};\nuse crud::AliothDbEntity;";
-            content = content.replace(import_needle, import_replacement);
+            let name = &entity.name;
+            // crud::AliothDbEntity import
+            content = content.replace(
+                "use serde::{Deserialize, Serialize};",
+                "use serde::{Deserialize, Serialize};\nuse crud::AliothDbEntity;\nuse crud::{Card, HasReferenceJoins, JoinKind, ReferenceJoin};",
+            );
+            // AliothDbEntity trait impl
             if let Some(alioth) = self.generate_alioth_db_entity_impl(entity, &select_clause) {
                 content.push_str(&alioth);
+            }
+            // SQL query constants
+            let snake = to_plural_snake(name);
+            let fields_vals: Vec<&str> = select_clause.split(", ").collect();
+            let insert_fields = fields_vals.join(", ");
+            let insert_params: Vec<String> = (1..=fields_vals.len()).map(|i| format!("${}", i)).collect();
+            let insert_vals = insert_params.join(", ");
+            let update_set: Vec<String> = fields_vals.iter().filter(|f| **f != "id").enumerate()
+                .map(|(i, f)| format!("{} = ${}", f, i + 1)).collect();
+            content.push_str(&format!("    pub const _SQL_INSERT: &str = \"INSERT INTO {snake} ({fields}) VALUES ({vals}) RETURNING {fields}\";\n", fields = insert_fields, vals = insert_vals, snake = snake));
+            let update_set_str = update_set.join(", ");
+            content.push_str(&format!("    pub const _SQL_UPDATE: &str = \"UPDATE {snake} SET {set} WHERE id = ${id_param} RETURNING {fields}\";\n", snake = snake, fields = insert_fields, set = update_set_str, id_param = fields_vals.len()));
+            content.push_str("}\n");
+            // Manual FromRow impl
+            let from_row_fields: String = select_clause.split(", ")
+                .map(|f| format!("        {}: row.try_get(\"{}\")?,\n", f, f))
+                .collect();
+            content.push_str(&format!(
+                "impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for {name} {{\n    fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {{\n        use sqlx::Row;\n        Ok({name} {{\n{from_row_fields}        }})\n    }}\n}}\n",
+                name = name,
+                from_row_fields = from_row_fields,
+            ));
+            // HasReferenceJoins impl
+            let ref_joins: Vec<String> = entity.relations.iter()
+                .filter(|r| r.via.is_some() && r.target_table.is_some())
+                .map(|r| {
+                    let via = r.via.as_deref().unwrap_or("");
+                    let tt = r.target_table.as_deref().unwrap_or("");
+                    let card = "Card::ToOne";
+                    format!(
+                        "        ReferenceJoin {{\n            name: \"{name}\",\n            card: {card},\n            kind: JoinKind::Forward {{ local_fk: \"{via}\", target_key: \"id\" }},\n            target_table: r#\"{tt}\"#,\n            display_fields: &[\"notice\", \"code\"],\n        }}",
+                        name = r.name, via = via, tt = tt, card = card,
+                    )
+                })
+                .collect();
+            if !ref_joins.is_empty() {
+                content.push_str(&format!(
+                    "impl HasReferenceJoins for {name} {{\n    fn reference_joins() -> Vec<ReferenceJoin> {{\n        vec![\n{joins}\n        ]\n    }}\n}}\n",
+                    name = name, joins = ref_joins.join(",\n"),
+                ));
             }
         }
 
@@ -653,14 +689,14 @@ pub fn config(cfg: &mut web::ServiceConfig) {{
                 r#"/// 列出所有 {entity_name} (分页)
 pub async fn list_{entity_snake}(
     pool: web::Data<sqlx::PgPool>,
-    query: web::Query<common::data::ListQuery>,
+    query: web::Query<crud::PaginationQuery>,
 ) -> Result<HttpResponse, ApiError> {{
     let offset = query.offset();
 
-    let items = sqlx::query_as::<_, {entity_name}>(&format!(
+    let items = sqlx::query_as::<_, {entity_name}>(AssertSqlSafe(format!(
         "SELECT {{}} FROM {plural_snake} ORDER BY id DESC LIMIT $1 OFFSET $2",
         {entity_name}::select_fields()
-    ))
+    )))
     .bind(query.page_size)
     .bind(offset)
     .fetch_all(pool.get_ref())
@@ -689,10 +725,10 @@ pub async fn list_{entity_snake}(
 pub async fn list_{entity_snake}(
     pool: web::Data<sqlx::PgPool>,
 ) -> Result<HttpResponse, ApiError> {{
-    let items = sqlx::query_as::<_, {entity_name}>(sqlx::query_as::<_, {entity_name}>(format!format!(
+    let items = sqlx::query_as::<_, {entity_name}>(AssertSqlSafe(format!(
         "SELECT {{}} FROM {plural_snake} ORDER BY id DESC",
         {entity_name}::select_fields()
-    ))
+    )))
     .fetch_all(pool.get_ref())
     .await
     .map_err(|e| ApiError::Database(e.to_string()))?;
@@ -851,7 +887,7 @@ pub async fn get_available_transitions_{entity_snake}(
 
 use actix_web::*;
 use serde::Deserialize;
-use sqlx::{{PgPool}};
+use sqlx::{{AssertSqlSafe, PgPool}};
 
 use crate::errors::ApiError;
 use crate::models::{entity_snake}::{{{entity_name}, {entity_name}Input}};
@@ -877,10 +913,10 @@ pub async fn get_{entity_snake}(
 ) -> Result<HttpResponse, ApiError> {{
     let id = path.into_inner();
 
-    let item = sqlx::query_as::<_, {entity_name}>(sqlx::query_as::<_, {entity_name}>(format!format!(
+    let item = sqlx::query_as::<_, {entity_name}>(AssertSqlSafe(format!(
         "SELECT {{}} FROM {plural_snake} WHERE id = $1",
         {entity_name}::select_fields()
-    ))
+    )))
     .bind(id)
     .fetch_optional(pool.get_ref())
     .await
@@ -1329,6 +1365,7 @@ fn meta_field_type_to_rust(field_type: &MetaFieldType, nullable: bool) -> String
         MetaFieldType::Json => "serde_json::Value",
         MetaFieldType::Enum(name) => name,
         MetaFieldType::Reference(_) => "i64",
+        MetaFieldType::ScalarValue(_) => "String",
     };
 
     if nullable {

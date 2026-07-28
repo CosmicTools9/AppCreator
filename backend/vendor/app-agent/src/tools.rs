@@ -552,37 +552,8 @@ pub fn compiled_module_ids() -> std::collections::HashSet<String> {
         .unwrap_or_else(|_| "../../Gateway/backend/Cargo.toml".to_string());
     let content = match std::fs::read_to_string(&cargo_path) {
         Ok(c) => c,
-        Err(_) => {
-            // 3. AppCreator standalone fallback: scan Pre-Proc/Sources/Modules/ for existing module IDs
-            common::telemetry::info!(
-                "Cargo.toml not found; falling back to Pre-Proc/Sources/Modules/ scan"
-            );
-            let preproc_path = std::env::var("PREPROC_MODULES_PATH")
-                .unwrap_or_else(|_| "../../Pre-Proc".to_string());
-            if let Ok(entries) = std::fs::read_dir(&preproc_path) {
-                for entry in entries.flatten() {
-                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                        let modules_dir = entry.path().join("Sources").join("Modules");
-                        if modules_dir.is_dir() {
-                            if let Ok(mod_entries) = std::fs::read_dir(&modules_dir) {
-                                for mod_entry in mod_entries.flatten() {
-                                    if mod_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                                        if let Some(name) = mod_entry.file_name().to_str() {
-                                            ids.insert(name.to_string());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if !ids.is_empty() {
-                common::telemetry::info!(
-                    "Loaded {} module IDs from Pre-Proc/Sources/Modules/ scan",
-                    ids.len()
-                );
-            }
+        Err(e) => {
+            common::telemetry::warn!("compiled_module_ids: failed to read {}: {}", cargo_path, e);
             return ids;
         }
     };
@@ -967,15 +938,12 @@ pub async fn create_module_scaffold(
         .await
         .map_err(|e| e.to_string())?;
 
-    let blocks: Vec<serde_json::Value> = block_ids
-        .iter()
-        .map(|id| serde_json::json!({ "id": id, "group": "default" }))
-        .collect();
-
     let first_id = block_ids
         .first()
         .cloned()
         .unwrap_or_else(|| "default".to_string());
+
+    let group_id = "default";
 
     let module = serde_json::json!({
         "id": module_id,
@@ -990,24 +958,36 @@ pub async fn create_module_scaffold(
         "hasBackend": true,
         "hasFrontend": true,
         "hasWebview": false,
-        "blocks": blocks,
+        "layer": 0,
+        "blocks": block_ids.iter().map(|id| {
+            serde_json::json!({ "id": id, "group": group_id })
+        }).collect::<Vec<_>>(),
         "blockAssembly": {
             "mode": "multi-block",
+            "shell": "ModuleLayout",
             "navigation": {
                 "groups": [
-                    { "id": "default", "label": "Default", "icon": "FileText" }
+                    { "id": group_id, "label": "Default", "icon": "FileText" }
                 ],
-                "defaultScene": first_id,
-                "collapseBehavior": "persist"
+                "defaultBlock": first_id,
+                "collapseBehavior": "width"
             },
             "blocks": block_ids.iter().enumerate().map(|(i, id)| {
-                serde_json::json!({ "id": id, "name": id, "order": i })
+                serde_json::json!({
+                    "id": id,
+                    "label": id,
+                    "group": group_id,
+                    "order": i,
+                    "icon": "FileText"
+                })
             }).collect::<Vec<_>>(),
             "stateContract": {
                 "shared": ["globalQuery", "userContext"],
                 "isolated": ["search", "filter", "page", "selectedId"]
-            }
-        }
+            },
+            "serviceBindings": serde_json::Value::Object(Default::default())
+        },
+        "min_alioth_version": "10.0.0"
     });
 
     let path = dir.join("module.json");
@@ -1026,7 +1006,7 @@ pub async fn create_block_scaffold(
     namespace: &str,
     block_id: &str,
     name: &str,
-    factor_ids: &[String],
+    _factor_ids: &[String],
 ) -> Result<String, String> {
     let dir = std::path::Path::new(project_root)
         .join("Pre-Proc")
@@ -1041,11 +1021,15 @@ pub async fn create_block_scaffold(
     let block = serde_json::json!({
         "id": block_id,
         "namespace": namespace,
-        "block": "SCEN",
         "name": name,
         "version": "0.1.0",
-        "prototypeVersion": "b-v1",
-        "factors": factor_ids
+        "prototypeVersion": "v1",
+        "services": [],
+        "sharing": {
+            "mode": "single",
+            "ownerModule": format!("{}/{}", namespace, block_id),
+            "consumers": []
+        }
     });
 
     let path = dir.join("block.json");

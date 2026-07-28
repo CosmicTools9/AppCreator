@@ -116,27 +116,19 @@ pub fn mapping_output_to_meta_module(
                 entity: m.name.clone(),
             });
         }
-        let entity = build_entity(m)?;
+        let entity = build_entity(m, &output.entities)?;
         let n = entity.name.clone();
         pages.push(MetaPage {
             name: format!("{}List", n),
             entity: n.clone(),
             page_type: PageType::List,
-            layout: PageLayout {
-                columns: vec![],
-                filters: vec![],
-                sections: vec![],
-            },
+            layout: PageLayout { columns: vec![], filters: vec![], sections: vec![] },
         });
         pages.push(MetaPage {
             name: format!("{}Detail", n.clone()),
             entity: n,
             page_type: PageType::Detail,
-            layout: PageLayout {
-                columns: vec![],
-                filters: vec![],
-                sections: vec![],
-            },
+            layout: PageLayout { columns: vec![], filters: vec![], sections: vec![] },
         });
         entities.push(entity);
     }
@@ -147,20 +139,28 @@ pub fn mapping_output_to_meta_module(
     Ok(module)
 }
 
-fn build_entity(m: &MappedEntity) -> Result<MetaEntity, AdapterError> {
+fn build_entity(m: &MappedEntity, all_entities: &[MappedEntity]) -> Result<MetaEntity, AdapterError> {
     let mut fields = Vec::new();
     let mut relations = Vec::new();
+
+    // Build a lookup map from entity name → table name
+    let table_map: std::collections::HashMap<&str, &str> = all_entities.iter()
+        .map(|e| (e.name.as_str(), e.mapping.table.as_str()))
+        .collect();
 
     for f in &m.fields {
         let col = f.column.as_deref().unwrap_or("");
         let has_scalar = f.scalar_table.is_some();
 
-        // qk_* / scalar → unsupported
+        // qk_* / scalar → ScalarValue type
         if col.starts_with("qk_") || (col.is_empty() && has_scalar) {
-            return Err(AdapterError::UnsupportedScalar {
-                json_path: f.json_path.clone(),
-                entity: m.name.clone(),
+            fields.push(MetaField {
+                name: f.json_path.clone(),
+                field_type: MetaFieldType::ScalarValue("Generic".into()),
+                nullable: true,
+                ..Default::default()
             });
+            continue;
         }
         if col.is_empty() {
             return Err(AdapterError::UnmappedField {
@@ -205,11 +205,16 @@ fn build_entity(m: &MappedEntity) -> Result<MetaEntity, AdapterError> {
                 })
             }
         };
+        let target_table = r.via.as_deref()
+            .and_then(|_| table_map.get(r.target.as_str()))
+            .map(|t| t.to_string());
         relations.push(MetaRelation {
             name: r.target.clone(),
             target_entity: r.target.clone(),
             relation_type: rt,
             nullable: true,
+            via: r.via.clone(),
+            target_table,
         });
     }
 
@@ -364,7 +369,7 @@ mod tests {
             }],
             relationships: vec![],
         });
-        assert!(mapping_output_to_meta_module(&o, "t").is_err());
+        assert!(mapping_output_to_meta_module(&o, "t").is_ok());
     }
 
     #[test]

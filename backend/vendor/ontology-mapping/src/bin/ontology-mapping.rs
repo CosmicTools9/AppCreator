@@ -10,8 +10,6 @@ use ontology_mapping::discovery;
 use ontology_mapping::OntologyMapper;
 use sqlx::postgres::PgPoolOptions;
 
-const DEFAULT_DB: &str = "postgres://localhost:5432/aliothstudio_dev";
-
 fn arg(args: &[String], name: &str) -> Option<String> {
     args.iter()
         .position(|a| a == name)
@@ -167,6 +165,24 @@ async fn main() -> Result<()> {
             print_json(&output);
             return Ok(());
         }
+        "pipeline-state" => {
+            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            let a = args.get(3..).unwrap_or(&[]).to_vec();
+            match sub {
+                "init" => ontology_mapping::pipeline_state::cmd_init(&a)?,
+                "consume" => ontology_mapping::pipeline_state::cmd_consume(&a)?,
+                "print-summary" => ontology_mapping::pipeline_state::cmd_print_summary(&a)?,
+                "set-stage" => ontology_mapping::pipeline_state::cmd_set_stage(&a)?,
+                "check-requires" => ontology_mapping::pipeline_state::cmd_check_requires(&a)?,
+                "complete-stage" => ontology_mapping::pipeline_state::cmd_complete_stage(&a)?,
+                "resolve-gate" => ontology_mapping::pipeline_state::cmd_resolve_gate(&a)?,
+                _ => {
+                    eprintln!("pipeline-state: init consume print-summary set-stage check-requires complete-stage resolve-gate");
+                    std::process::exit(1);
+                }
+            }
+            return Ok(());
+        }
         _ => {}
     }
 
@@ -279,6 +295,158 @@ async fn main() -> Result<()> {
                 &serde_json::json!({ "mapped": mapped, "total": gaps.len(), "matched": mapped.len() }),
             );
         }
+        "sync" => {
+            let ns = arg(&args, "--namespace").unwrap_or_default();
+            let svc_dir = arg(&args, "--services-dir");
+            let fix_mode = args.iter().any(|a| a == "--fix");
+            let namespaces: Vec<String> = if !ns.is_empty() && ns != "all" {
+                vec![ns.clone()]
+            } else {
+                let preproc = std::path::Path::new("Pre-Proc");
+                let mut dirs = Vec::new();
+                if preproc.exists() {
+                    for entry in std::fs::read_dir(preproc)? {
+                        let entry = entry?;
+                        let name = entry.file_name().into_string().unwrap_or_default();
+                        if entry.path().is_dir() && !name.starts_with('.') && !name.starts_with('_')
+                        {
+                            dirs.push(name);
+                        }
+                    }
+                }
+                dirs
+            };
+
+            let mut results = Vec::new();
+            for ns_name in &namespaces {
+                let use_dir = if !ns.is_empty() && ns != "all" && ns == *ns_name {
+                    std::path::PathBuf::from(
+                        svc_dir
+                            .clone()
+                            .unwrap_or_else(|| format!("Pre-Proc/{ns}/Sources/Services")),
+                    )
+                } else {
+                    std::path::Path::new("Pre-Proc")
+                        .join(ns_name)
+                        .join("Sources")
+                        .join("Services")
+                };
+                let entities = ontology_mapping::sync::collect_entities_with_paths(&use_dir)?;
+                let mut ns_issues: Vec<serde_json::Value> = Vec::new();
+                let mut files_fixed = 0usize;
+                // Aggregate fix_map per service.json path
+                let mut fixes_by_path: std::collections::HashMap<
+                    String,
+                    std::collections::HashMap<String, Vec<ontology_mapping::sync::FieldMapping>>,
+                > = std::collections::HashMap::new();
+
+                let entities_found = entities.len();
+                let mut tables_checked = 0usize;
+
+                for (entity_name, entity, svc_path) in &entities {
+                    let table = match entity.table.as_deref() {
+                        Some(t) if !t.is_empty() => t,
+                        _ => continue,
+                    };
+                    tables_checked += 1;
+                    let db_cols = ontology_mapping::sync::query_table_columns(&pool, table).await?;
+                    let entity_issues = ontology_mapping::sync::compare_entity(
+                        entity_name,
+                        &db_cols,
+                        &entity.field_mappings,
+                    );
+                    for issue in &entity_issues {
+                        ns_issues.push(serde_json::json!({
+                            "entity": issue.entity,
+                            "severity": issue.severity,
+                            "message": issue.message,
+                        }));
+                    }
+
+                    if fix_mode && !entity_issues.is_empty() {
+                        let existing_map: std::collections::HashMap<String, String> = entity
+                            .field_mappings
+                            .iter()
+                            .filter_map(|fm| {
+                                fm.column.as_ref().map(|c| {
+                                    (c.clone(), fm.json_path.clone().unwrap_or_else(|| c.clone()))
+                                })
+                            })
+                            .collect();
+                        let correct =
+                            ontology_mapping::sync::build_correct_mappings(&db_cols, &existing_map);
+                        fixes_by_path
+                            .entry(svc_path.to_string_lossy().to_string())
+                            .or_default()
+                            .insert(entity_name.clone(), correct);
+                    }
+                }
+
+                // Apply fixes aggregated per service.json file
+                if fix_mode {
+                    for (path_str, fix_map) in &fixes_by_path {
+                        let p = std::path::Path::new(path_str);
+                        if ontology_mapping::sync::fix_service_json(p, fix_map)? {
+                            files_fixed += 1;
+                        }
+                    }
+                    // Re-read and re-check after fix
+                    ns_issues.clear();
+                    let fixed_entities =
+                        ontology_mapping::sync::collect_entities_with_paths(&use_dir)?;
+                    for (entity_name, entity, _) in &fixed_entities {
+                        let table = match entity.table.as_deref() {
+                            Some(t) if !t.is_empty() => t,
+                            _ => continue,
+                        };
+                        let db_cols = ontology_mapping::sync::query_table_columns(&pool, table)
+                            .await
+                            .unwrap_or_else(|_| vec![]);
+                        let entity_issues = ontology_mapping::sync::compare_entity(
+                            entity_name,
+                            &db_cols,
+                            &entity.field_mappings,
+                        );
+                        for issue in &entity_issues {
+                            ns_issues.push(serde_json::json!({
+                                "entity": issue.entity,
+                                "severity": issue.severity,
+                                "message": issue.message,
+                            }));
+                        }
+                    }
+                }
+
+                let consistent = ns_issues.is_empty();
+                results.push(serde_json::json!({
+                    "namespace": ns_name,
+                    "entities_found": entities_found,
+                    "tables_checked": tables_checked,
+                    "issues": ns_issues,
+                    "consistent": consistent,
+                    "files_fixed": files_fixed,
+                }));
+            }
+
+            let all_pass = results
+                .iter()
+                .all(|r| r["consistent"].as_bool().unwrap_or(false));
+            print_json(&serde_json::json!({ "results": results, "all_pass": all_pass }));
+            std::process::exit(if all_pass { 0 } else { 1 });
+        }
+        "patch-m2n" => {
+            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            let a = args.get(3..).unwrap_or(&[]).to_vec();
+            match sub {
+                "report" => ontology_mapping::patch_m2n::cmd_report(&pool, &a).await?,
+                "apply" => ontology_mapping::patch_m2n::cmd_apply(&pool, &a).await?,
+                "verify" => ontology_mapping::patch_m2n::cmd_verify(&pool, &a).await?,
+                _ => {
+                    eprintln!("patch-m2n: report apply verify");
+                    std::process::exit(1);
+                }
+            }
+        }
         _ => {
             eprintln!("ontology-mapping — 本体映射发现与字段映射 CLI");
             eprintln!();
@@ -293,7 +461,9 @@ async fn main() -> Result<()> {
             eprintln!("  ontology-mapping map <input.json> [--services <dir>] [--rules <path>]");
             eprintln!("  ontology-mapping transfer --namespace <ns> [--services-dir <dir>] [--rules <path>] [--gaps '<json>']");
             eprintln!("  ontology-mapping roots | hierarchies");
-            eprintln!("DB: DATABASE_URL（默认 {DEFAULT_DB}）");
+            eprintln!("  ontology-mapping pipeline-state <init|consume|print-summary|set-stage|check-requires|complete-stage|resolve-gate> [args...]");
+            eprintln!("  ontology-mapping patch-m2n <report|apply|verify> [--dry-run]");
+            eprintln!("  ontology-mapping sync --namespace <ns> [--fix]");
             std::process::exit(if cmd.is_empty() { 0 } else { 1 });
         }
     }

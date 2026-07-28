@@ -45,9 +45,20 @@ pub fn row_to_json(row: &sqlx::postgres::PgRow, cfg: &DimTable) -> serde_json::V
     for (i, col_name) in cfg.select_cols.iter().enumerate() {
         let name = col_name.split('.').next_back().unwrap_or(col_name);
         let val: serde_json::Value = match row.try_get::<Option<serde_json::Value>, _>(i) {
+            Ok(Some(serde_json::Value::Number(n))) => {
+                // Serialize id / qk_* / fk_* / ref_* columns as strings to avoid JS precision loss
+                if name == "id" || name.starts_with("qk_") || name.starts_with("fk_") || name.starts_with("ref_") {
+                    if let Some(n) = n.as_i64() {
+                        json!(n.to_string())
+                    } else {
+                        json!(n)
+                    }
+                } else {
+                    json!(n)
+                }
+            }
             Ok(Some(v)) => v,
             _ => {
-                // fallback: try string
                 match row.try_get::<Option<String>, _>(i) {
                     Ok(Some(s)) => json!(s),
                     _ => serde_json::Value::Null,

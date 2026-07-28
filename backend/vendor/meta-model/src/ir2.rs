@@ -207,7 +207,7 @@ pub enum GeneratorConstraintLevel {
 }
 
 /// 主键类型
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PrimaryKeyType {
     /// BigInt 主键（默认），使用 gen_next_zuid()
@@ -330,7 +330,7 @@ pub struct FieldName {
     pub pascal: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum GeneratorFieldType {
     #[default]
     Text,

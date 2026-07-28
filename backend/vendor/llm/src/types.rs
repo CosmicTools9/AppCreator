@@ -101,7 +101,7 @@ impl LlmServiceConfig {
                 temperature: std::env::var("LLM_TEMPERATURE")
                     .ok()
                     .and_then(|s| s.parse().ok())
-                    .unwrap_or(0.7),
+                    .unwrap_or(1.0),
                 max_tokens: std::env::var("LLM_MAX_TOKENS")
                     .ok()
                     .and_then(|s| s.parse().ok())
@@ -160,7 +160,7 @@ impl LlmProvider {
     pub fn default_flash_model(&self) -> &'static str {
         match self {
             Self::DeepSeek => "deepseek-v4-flash",
-            Self::Kimi => "kimi-k2.5",
+            Self::Kimi => "kimi-k2.6",
             Self::MiniMax => "MiniMax-M2.7",
         }
     }
@@ -271,7 +271,7 @@ impl GenerationParams {
 impl Default for GenerationParams {
     fn default() -> Self {
         Self {
-            temperature: 0.7,
+            temperature: 1.0,
             max_tokens: 4096,
             top_p: 1.0,
             frequency_penalty: 0.0,

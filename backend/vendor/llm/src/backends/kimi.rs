@@ -5,8 +5,9 @@
 //! OpenAI:
 //! - `Authorization: Bearer <key>` (same as OpenAI)
 //! - Native `tools` schema with `type: "function"`
-//! - Does NOT support `reasoning_effort` (Kimi models have built-in thinking
-//!   variants; selection is done by model name, e.g. `kimi-k2-thinking`).
+//! - Kimi K3 supports `reasoning_effort` as a top-level field (`low`/`high`/`max`).
+//! - Kimi K3 uses `max_completion_tokens` (not `max_tokens`).
+//! - Temperature is fixed per-model and MUST NOT be sent (will error).
 //! - Does NOT support `response_format.type = "json_object"` directly —
 //!   instead we use `tools` with a JSON schema or rely on prompt instructions.
 //! - Returns tool calls with `arguments` as a JSON string (parses identically
@@ -19,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use super::{BackendError, CompletionRequest, CompletionResponse, LlmBackend, ToolCallResult};
 
 const DEFAULT_BASE_URL: &str = "https://api.moonshot.cn";
-const DEFAULT_MODEL: &str = "kimi-k2.6";
-const DEFAULT_FLASH_MODEL: &str = "kimi-k2.5";
+const DEFAULT_MODEL: &str = "kimi-k3";
+const DEFAULT_FLASH_MODEL: &str = "kimi-k2.6";
 
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
@@ -31,11 +32,21 @@ struct KimiRequest<'a> {
     tools: Option<Vec<KimiTool<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_choice: Option<&'a str>,
-    temperature: f64,
-    max_tokens: u64,
+    /// Temperature is fixed per-model. Skipped entirely (Kimi errors if sent).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f64>,
+    /// Used for K3 (deprecated max_tokens). Non-K3 uses max_tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u64>,
+    /// Used for non-K3 models (k2.6, k2.7-code). K3 uses max_completion_tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u64>,
     top_p: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     n: Option<u8>,
+    /// Kimi K3 supports reasoning_effort (low/high/max).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<&'a str>,
     #[serde(default)]
     stream: bool,
 }
@@ -214,6 +225,26 @@ impl KimiBackend {
             )
         };
 
+        // Model capability branching: K3 uses new fields, legacy models use old.
+        let is_k3 = req.model.contains("kimi-k3");
+
+        // Kimi K3 reasoning_effort: low/high/max. Only for K3.
+        let reasoning_effort: Option<&'static str> = if is_k3 {
+            match req.reasoning_effort {
+                Some(crate::types::ReasoningEffort::Minimal) => Some("low"),
+                Some(crate::types::ReasoningEffort::Low) => Some("low"),
+                Some(crate::types::ReasoningEffort::Medium) => Some("high"),
+                Some(crate::types::ReasoningEffort::High) => Some("high"),
+                Some(crate::types::ReasoningEffort::XHigh) => Some("max"),
+                None => None,
+            }
+        } else {
+            None
+        };
+
+        // Temperature is fixed per-model (all Kimi); skip entirely to avoid 400.
+        let temperature: Option<f64> = None;
+
         KimiRequest {
             model: req.model.as_str(),
             messages,
@@ -223,11 +254,13 @@ impl KimiBackend {
             } else {
                 Some("auto")
             },
-            temperature: req.temperature,
-            max_tokens: req.max_tokens,
+            temperature,
+            max_completion_tokens: if is_k3 { Some(req.max_tokens) } else { None },
+            max_tokens: if is_k3 { None } else { Some(req.max_tokens) },
             top_p: req.top_p,
             // Kimi supports multiple completions per request; default to 1.
             n: Some(1),
+            reasoning_effort,
             stream: false,
         }
     }
@@ -343,4 +376,78 @@ pub const fn default_model() -> &'static str {
 
 pub const fn default_flash_model() -> &'static str {
     DEFAULT_FLASH_MODEL
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::ReasoningEffort;
+
+    fn make_backend() -> KimiBackend {
+        KimiBackend::new(
+            "test-key".to_string(),
+            None,
+            "kimi-k3".to_string(),
+            "kimi-k2.6".to_string(),
+            30,
+        )
+        .unwrap()
+    }
+
+    fn make_request(model: &str, effort: Option<ReasoningEffort>) -> CompletionRequest {
+        CompletionRequest {
+            model: model.to_string(),
+            system: None,
+            prompt: "hello".to_string(),
+            tools: vec![],
+            temperature: 1.0,
+            max_tokens: 4096,
+            top_p: 1.0,
+            frequency_penalty: 0.0,
+            presence_penalty: 0.0,
+            reasoning_effort: effort,
+            response_format: None,
+        }
+    }
+
+    #[test]
+    fn test_k3_serializes_max_completion_tokens() {
+        let backend = make_backend();
+        let req = make_request("kimi-k3", None);
+        let body = backend.build_body(&req);
+        let json = serde_json::to_string(&body).unwrap();
+        assert!(json.contains("max_completion_tokens"), "K3 should serialize max_completion_tokens");
+        assert!(!json.contains("max_tokens"), "K3 should NOT serialize max_tokens");
+        assert!(!json.contains("temperature"), "Kimi should NOT serialize temperature");
+    }
+
+    #[test]
+    fn test_k26_serializes_max_tokens() {
+        let backend = make_backend();
+        let req = make_request("kimi-k2.6", None);
+        let body = backend.build_body(&req);
+        let json = serde_json::to_string(&body).unwrap();
+        assert!(json.contains("max_tokens"), "k2.6 should serialize max_tokens");
+        assert!(!json.contains("max_completion_tokens"), "k2.6 should NOT serialize max_completion_tokens");
+        assert!(!json.contains("temperature"), "Kimi should NOT serialize temperature");
+    }
+
+    #[test]
+    fn test_k3_reasoning_effort_included() {
+        let backend = make_backend();
+        let req = make_request("kimi-k3", Some(ReasoningEffort::XHigh));
+        let body = backend.build_body(&req);
+        let json = serde_json::to_string(&body).unwrap();
+        assert!(json.contains("reasoning_effort"), "K3 should include reasoning_effort");
+        assert!(json.contains("\"max\""), "K3 XHigh maps to max");
+    }
+
+    #[test]
+    fn test_k26_reasoning_effort_omitted() {
+        let backend = make_backend();
+        let req = make_request("kimi-k2.6", Some(ReasoningEffort::High));
+        let body = backend.build_body(&req);
+        let json = serde_json::to_string(&body).unwrap();
+        assert!(!json.contains("reasoning_effort"), "k2.6 should NOT include reasoning_effort");
+    }
 }

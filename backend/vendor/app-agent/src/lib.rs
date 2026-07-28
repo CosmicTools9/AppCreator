@@ -12,9 +12,9 @@ pub mod memory;
 pub mod mocks;
 pub mod models;
 pub mod orchestrator;
+pub mod service_gen;
 pub mod planner;
 pub mod schema;
-pub mod service_gen;
 pub mod skills;
 pub mod state;
 pub mod tool_registry;
@@ -33,7 +33,7 @@ pub use harness::{HarnessResult, LlmHarness, TaskType};
 pub use llm::{GenerationOverrides, LlmError, LlmService};
 pub use models::{ModelCapabilities, ModelEntry, ModelRegistry};
 pub mod aligner;
-pub use orchestrator::{progress_percent, state_name, AppAgent};
+pub use orchestrator::{state_name, progress_percent, AppAgent};
 use sqlx::PgPool;
 pub use state::{
     AgentProgress, AgentState, AgentToolCall, AppMeta, BuildResult, BusinessRulePlan,

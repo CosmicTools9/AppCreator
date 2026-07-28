@@ -9,5 +9,5 @@ description = "Alioth 元数据模型契约 — 仅包含 IR-1/IR-2、版本、�
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-chrono = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
 convert_case = { workspace = true }

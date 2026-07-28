@@ -118,9 +118,49 @@ done
 
 ## Upstream alignment
 
-AppCreator tracks AliothStudio `main` branch. `sync-framework.sh` is a
-best-effort developer tool (not a CI gate). No formal version lock.
-## Vendor drift (2026-07-25)
+AppCreator tracks AliothStudio `main` branch. The upstream commit is recorded in
+`backend/vendor/MANIFEST` after each `sync-framework.sh` run.
+
+### Sync flow
+
+```bash
+# Full sync: copy sources → pin workspace deps → apply ADAPTATIONS → write MANIFEST
+bash scripts/sync-framework.sh /path/to/AliothStudio
+
+# CI gate: validates vendor matches expected sync + adaptations result, plus commit provenance
+bash scripts/sync-framework.sh /path/to/AliothStudio --check
+
+# Preview drift without writing
+bash scripts/sync-framework.sh /path/to/AliothStudio --dry-run
+```
+
+Exit codes: 0 = clean, 1 = source invalid/dirty, 2 = content drift (run sync), 3 = commit mismatch.
+
+### Per-crate adaptations
+
+Each vendored crate may include an `ADAPTATIONS` file with post-sync sed commands.
+These encode AppCreator-specific changes that must survive future syncs.
+
+| Crate | Adaptations |
+|---|---|
+| `app-agent` | `orchestrator.rs`: `pub fn state_name`/`progress_percent`; `lib.rs`: grouped re-export |
+
+### Cargo.toml version pinning
+
+`sync-framework.sh`'s `rewrite_cargo()` automatically converts upstream `workspace = true`
+deps to pinned versions for deps not defined in AppCreator's workspace.
+See the `sed -i '' -e 's|... = { workspace = true }|... = "version"|'` patterns in the script.
+
+### Sync protocol for future maintainers
+
+1. Run `bash scripts/sync-framework.sh /path/to/AliothStudio .`
+2. Verify `--check` passes (exit 0)
+3. Verify `cargo check -p app-creator` passes
+4. If `cargo check` fails, fix compilation then update ADAPTATIONS for the affected crate
+
+### Vendor drift (2026-07-25)
+
+_This section is historical. Current drift can be checked with `sync-framework.sh --check`._
 
 `diff -rq` between vendored crates and main-repo source reveals:
 

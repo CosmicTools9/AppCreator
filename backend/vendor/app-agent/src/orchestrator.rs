@@ -631,29 +631,53 @@ User intent: {intent}
             result
         }
 
+        /// 递归 glob 匹配：`*` 精确匹配单个路径段（不含 `/`）。
+        /// `pattern` 为相对 project_root 的路径段序列；命中任一文件即置 `found=true`。
+        fn glob_walk(root: &std::path::Path, pattern: &[&str], found: &mut bool) {
+            if *found || pattern.is_empty() {
+                if pattern.is_empty() && root.is_file() {
+                    *found = true;
+                }
+                return;
+            }
+            let seg = pattern[0];
+            if seg == "*" {
+                if let Ok(entries) = root.read_dir() {
+                    for entry in entries.flatten() {
+                        glob_walk(&entry.path(), &pattern[1..], found);
+                        if *found {
+                            return;
+                        }
+                    }
+                }
+            } else {
+                let next = root.join(seg);
+                if pattern.len() == 1 {
+                    if next.is_file() {
+                        *found = true;
+                    }
+                } else if next.is_dir() {
+                    glob_walk(&next, &pattern[1..], found);
+                }
+            }
+        }
+
         for gate in &step.gates {
             // 纯文件检查
             if gate.program.is_empty() {
                 if let Some(ref glob) = gate.output_glob {
-                    let path = project_root.join(resolve_template(glob, context));
-                    let pattern = path.to_string_lossy().to_string();
+                    let pattern = resolve_template(glob, context);
+                    let path = project_root.join(&pattern);
                     let wildcard = pattern.contains('*');
                     if wildcard {
-                        let dir = path.parent().unwrap_or(&project_root);
-                        let name = path.file_name().unwrap_or_default().to_string_lossy();
-                        if !dir
-                            .read_dir()
-                            .map(|mut e| {
-                                e.any(|e| {
-                                    e.as_ref().is_ok_and(|e| {
-                                        e.file_name()
-                                            .to_string_lossy()
-                                            .contains(name.trim_matches('*'))
-                                    })
-                                })
-                            })
-                            .unwrap_or(false)
-                        {
+                        // `*` 匹配单个路径段（如 `Blocks/*/block.json` → `Blocks/<id>/block.json`）
+                        let segs: Vec<&str> = pattern
+                            .split('/')
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                        let mut found = false;
+                        glob_walk(&project_root, &segs, &mut found);
+                        if !found {
                             return Err(format!("gate output_glob not found: {}", glob));
                         }
                     } else if !path.exists() {
@@ -675,6 +699,7 @@ User intent: {intent}
             for arg in &gate.args {
                 cmd.arg(resolve_template(arg, context));
             }
+            cmd.current_dir(&project_root);
             cmd.stdout(std::process::Stdio::piped());
             cmd.stderr(std::process::Stdio::piped());
             cmd.kill_on_drop(true);
@@ -1416,8 +1441,10 @@ User intent: {intent}
                     if let Some(arr) = tc_args.get_mut("args").and_then(|v| v.as_array_mut()) {
                         for item in arr.iter_mut() {
                             if let Some(s) = item.as_str() {
-                                *item =
-                                    serde_json::Value::String(Self::resolve_templates(s, &context));
+                                *item = serde_json::Value::String(Self::resolve_templates(
+                                    s,
+                                    &context,
+                                ));
                             }
                         }
                     }
@@ -1471,10 +1498,9 @@ User intent: {intent}
                         ExecutionEvent::ToolCall {
                             tool: tc_name.clone(),
                             success: exec.success,
-                            detail: exec
-                                .error
-                                .clone()
-                                .or_else(|| exec.data.as_ref().map(|_| "ok".to_string())),
+                            detail: exec.error.clone().or_else(|| {
+                                exec.data.as_ref().map(|_| "ok".to_string())
+                            }),
                         },
                     );
                 }
@@ -3730,26 +3756,26 @@ pub fn progress_percent(state: &AgentState) -> u8 {
         AgentState::Planning {
             needs_clarification: Some(_),
             ..
-        } => 10,
-        AgentState::Planning { .. } => 15,
-        AgentState::Extending => 25,
-        AgentState::Generating => 30,
-        AgentState::GeneratingFrontend { .. } => 35,
-        AgentState::Composing => 40,
-        AgentState::Verifying { .. } => 65,
-        AgentState::Publishing { .. } => 80,
-        AgentState::SemanticAnalysis => 5,
-        AgentState::FunctionDecomposition => 10,
-        AgentState::OntologyAnalysis { .. } => 20,
-        AgentState::ModuleCreation => 30,
-        AgentState::BlockCreation => 40,
-        AgentState::OntologyTransfer => 50,
-        AgentState::ServiceAPI => 60,
-        AgentState::ExecutingSkill { .. } => 70,
+        } => 30,
+        AgentState::Planning { .. } => 20,
+        AgentState::Extending => 50,
+        AgentState::Generating => 60,
+        AgentState::GeneratingFrontend { .. } => 45,
+        AgentState::Verifying { .. } => 90,
+        AgentState::Publishing { .. } => 95,
+        AgentState::Composing => 80,
         AgentState::Published { .. } => 100,
-        AgentState::Presenting { .. } => 95,
-        AgentState::AwaitingUserInput { .. } => 85,
-        AgentState::Failed { .. } => 100,
+        AgentState::SemanticAnalysis => 5,
+        AgentState::FunctionDecomposition => 15,
+        AgentState::OntologyAnalysis { .. } => 30,
+        AgentState::ModuleCreation => 50,
+        AgentState::BlockCreation => 65,
+        AgentState::OntologyTransfer => 75,
+        AgentState::ServiceAPI => 85,
+        AgentState::Presenting { .. } => 100,
+        AgentState::ExecutingSkill { .. } => 40,
+        AgentState::AwaitingUserInput { .. } => 95,
+        AgentState::Failed { .. } => 0,
     }
 }
 

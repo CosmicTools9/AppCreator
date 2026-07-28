@@ -16,9 +16,22 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::LazyLock;
+
+/// 将相对路径解析到项目根目录（与 `RunCommandTool` / 门禁路径解析保持一致）。
+///
+/// LLM 产出的路径均为相对项目根的路径（如 `Pre-Proc/Alioth/...`），
+/// 而测试进程 CWD 通常是 `Meta/backend/app-agent`，若直接按 CWD 写文件，
+/// 门禁按 `resolve_project_root()` 校验时会找不到产物。绝对路径原样返回。
+fn resolve_path_against_root(p: &str) -> PathBuf {
+    let path = Path::new(p);
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    crate::composer::resolve_project_root().join(path)
+}
 
 /// 工具定义（JSON Schema 描述参数，供 LLM 读取）
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +168,8 @@ impl Tool for ReadFileTool {
     }
     async fn call(&self, params: Value) -> ToolCallResult {
         let path = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
-        match tokio::fs::read_to_string(path).await {
+        let p = resolve_path_against_root(path);
+        match tokio::fs::read_to_string(&p).await {
             Ok(content) => ToolCallResult::ok(
                 "read_file",
                 serde_json::json!({
@@ -164,7 +178,9 @@ impl Tool for ReadFileTool {
                     "size": content.len(),
                 }),
             ),
-            Err(e) => ToolCallResult::err("read_file", format!("Failed to read '{}': {}", path, e)),
+            Err(e) => {
+                ToolCallResult::err("read_file", format!("Failed to read '{}': {}", p.display(), e))
+            }
         }
     }
 }
@@ -193,11 +209,11 @@ impl Tool for WriteFileTool {
     async fn call(&self, params: Value) -> ToolCallResult {
         let path = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
         let content = params.get("content").and_then(|v| v.as_str()).unwrap_or("");
-        let p = std::path::Path::new(path);
+        let p = resolve_path_against_root(path);
         if let Some(parent) = p.parent() {
             let _ = tokio::fs::create_dir_all(parent).await;
         }
-        match tokio::fs::write(p, content).await {
+        match tokio::fs::write(&p, content).await {
             Ok(()) => ToolCallResult::ok(
                 "write_file",
                 serde_json::json!({
@@ -206,7 +222,7 @@ impl Tool for WriteFileTool {
                 }),
             ),
             Err(e) => {
-                ToolCallResult::err("write_file", format!("Failed to write '{}': {}", path, e))
+                ToolCallResult::err("write_file", format!("Failed to write '{}': {}", p.display(), e))
             }
         }
     }
@@ -236,9 +252,9 @@ impl Tool for SearchFileTool {
         let pattern = params.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
         let root = params.get("root").and_then(|v| v.as_str()).unwrap_or(".");
 
-        let base = std::path::Path::new(root);
+        let base = resolve_path_against_root(root);
         let full_glob = base.join(pattern);
-        let parent = full_glob.parent().unwrap_or(base);
+        let parent = full_glob.parent().unwrap_or(&base);
         let file_part = full_glob
             .file_name()
             .and_then(|s| s.to_str())

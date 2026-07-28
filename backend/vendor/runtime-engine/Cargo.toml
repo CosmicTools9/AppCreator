@@ -13,9 +13,9 @@ name = "runtime_engine"
 serde = { workspace = true }
 serde_json = { workspace = true }
 yaml_serde = "0.10"
-chrono = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
 thiserror = { workspace = true }
-log = { workspace = true }
+log = "0.4"
 runtime-contract = { path = "../runtime-contract" }
 
 [dev-dependencies]

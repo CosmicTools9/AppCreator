@@ -23,9 +23,9 @@ serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["serde", "v4"] }
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
-sha2 = { workspace = true }
+sha2 = "0.11"
 validator = { version = "0.20", features = ["derive"] }
 regex = "1.10"
 common = { path = "../common" }
@@ -48,7 +48,7 @@ tempfile = "3.0"
 walkdir = "2.5"
 
 # CLI
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.6", features = ["derive"] }
 toml = "1.1"
 
 # Directory paths

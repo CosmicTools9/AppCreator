@@ -48,27 +48,27 @@ pub async fn require_resource_access(
             SELECT fk_user_attribute as ua_id, 0 as depth
             FROM isahl_auth.ngac_user_rr_attribute
             WHERE fk_user = $1 AND deleted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
-            UNION
+            {0}
+            UNION ALL
             SELECT unnest(ua.ancestor_ids)::BIGINT as ua_id, depth + 1
             FROM isahl_auth.ngac_user_attribute ua
-            JOIN user_attrs ua2 ON ua.id = ua2.ua_id
-            WHERE ua2.depth < 10 AND ua.deleted_at IS NULL
-            {0}
+            INNER JOIN user_attrs AS ua_cte ON ua.id = ua_cte.ua_id
+            WHERE ua_cte.depth < 10 AND ua.deleted_at IS NULL
         ),
         resource_attrs AS (
             SELECT id as oa_id, 0 as depth
             FROM isahl_auth.ngac_object_attribute
             WHERE resource_type = $2 AND fk_resource = $3 AND deleted_at IS NULL
-            UNION
+            UNION ALL
             SELECT unnest(oa.ancestor_ids)::BIGINT as oa_id, depth + 1
             FROM isahl_auth.ngac_object_attribute oa
-            JOIN resource_attrs ra ON oa.id = ra.oa_id
-            WHERE ra.depth < 10 AND oa.deleted_at IS NULL
+            INNER JOIN resource_attrs AS ra_cte ON oa.id = ra_cte.oa_id
+            WHERE ra_cte.depth < 10 AND oa.deleted_at IS NULL
         )
         SELECT EXISTS(
             SELECT 1 FROM isahl_auth.ngac_association a
-            JOIN user_attrs ua ON a.fk_user_attribute = ua.ua_id
-            JOIN resource_attrs ra ON a.fk_object_attribute = ra.oa_id
+            INNER JOIN user_attrs AS ua ON a.fk_user_attribute = ua.ua_id
+            INNER JOIN resource_attrs AS ra ON a.fk_object_attribute = ra.oa_id
             WHERE a.deleted_at IS NULL
               AND EXISTS(SELECT 1 FROM isahl_auth.ngac_access_right ar
                          WHERE ar.id = ANY(a.ak_access_rights) AND ar.o_name = $4)

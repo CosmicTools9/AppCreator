@@ -1,0 +1,12 @@
+# app-agent ADAPTATIONS
+# Applied by sync-framework.sh after sync_crate() for this crate.
+# Each line is a sed command applied from the crate root ($CRATE_DIR).
+# Syntax: <relative-file-path> <sed-expression>
+# Lines starting with # or empty are ignored.
+
+# 1. Make internal helper functions pub (AppCreator's chat.rs calls them via app_agent::state_name)
+src/orchestrator.rs s/^fn state_name(/pub fn state_name(/
+src/orchestrator.rs s/^fn progress_percent(/pub fn progress_percent(/
+
+# 2. Re-export these functions from lib.rs (replace pub use orchestrator::AppAgent; with grouped)
+src/lib.rs s/^pub use orchestrator::AppAgent;$/pub use orchestrator::{state_name, progress_percent, AppAgent};/

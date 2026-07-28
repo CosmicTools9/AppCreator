@@ -79,12 +79,10 @@ impl PlanningPrompt {
         ontology_context: Option<&serde_json::Value>,
         compiled_modules: &std::collections::HashSet<String>,
     ) -> Self {
-        // 第二部分（APP_DEVELOPER_GUIDE + ALIOTH_ONTOLOGY_SPEC）相对较大，
-        // 但变化频率低，下一次调用时若未改 APP_DEVELOPER_GUIDE 内容，
-        // 字节级前缀只需从第二个部分开始首次 miss。
-        // 第二部分（APP_DEVELOPER_GUIDE + ALIOTH_ONTOLOGY_SPEC）相对较大，
-        // 但变化频率低，下一次调用时若未改 APP_DEVELOPER_GUIDE 内容，
-        // 字节级前缀只需从第二个部分开始首次 miss。
+        // 架构原则：AppAgent 不向 LLM 注入文本型规约（markdown 规约是写给交互式 coding agent 的，
+        // 不是运行时系统的输入）。正确性由代码化约束保证：typed IR、validator、
+        // convention_checker、DB 实时查询。SYSTEM_PROMPT 只含蒸馏后的最小指令，
+        // 字节级前缀稳定以利于 prefix cache。
         let system = format!(
             "{}\n{}",
             Self::static_system_prefix(),

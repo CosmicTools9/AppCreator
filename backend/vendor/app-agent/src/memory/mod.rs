@@ -156,7 +156,7 @@ impl MemoryStore for PgMemoryStore {
             SELECT id, namespace, kind, keywords, content, summary, created_at
             FROM isahl_meta.agent_memory
             WHERE namespace = $1
-              AND (summary ILIKE $2 OR $3 = ANY(keywords))
+              AND (summary ILIKE $2 OR content::text ILIKE $2 OR $3 = ANY(keywords))
             ORDER BY created_at DESC
             LIMIT $4
             "#,

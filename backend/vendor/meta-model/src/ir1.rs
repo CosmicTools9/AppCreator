@@ -319,6 +319,9 @@ pub enum MetaFieldType {
     Json,
     Enum(String),
     Reference(String),
+    /// Scalar/measurement value (qk_* fields), e.g. price, date, quantity.
+    /// The string indicates the value kind ("Price", "Date", "Common", etc.).
+    ScalarValue(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -327,6 +330,14 @@ pub struct MetaRelation {
     pub target_entity: String,
     pub relation_type: MetaRelationType,
     pub nullable: bool,
+    /// Physical FK column name (from MappingOutput.relationships[].via).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<String>,
+
+    /// Target physical table name (resolved from MappingOutput at build time).
+    /// Used to generate `HasReferenceJoins` with correct `ReferenceJoin.target_table`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_table: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

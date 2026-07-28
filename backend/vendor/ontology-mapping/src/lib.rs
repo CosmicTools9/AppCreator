@@ -8,10 +8,12 @@ pub mod inferrer;
 pub mod matcher;
 pub mod model_graph;
 pub mod output;
+pub mod patch_m2n;
+pub mod pipeline_state;
 pub mod prototype_check;
 pub mod rules;
 pub mod stale;
-
+pub mod sync;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;

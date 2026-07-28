@@ -33,7 +33,7 @@ pub fn validate_pg_ident(ident: &str) -> Result<(), &'static str> {
             return Err("Identifier must start with a letter or underscore");
         }
     }
-    if chars.any(|c| !(c.is_ascii_alphanumeric() || c == '_')) {
+    if chars.any(|c| !(c.is_ascii_alphanumeric() || c == '_' || c == '-')) {
         return Err("Identifier contains invalid characters");
     }
     Ok(())
@@ -65,6 +65,8 @@ mod tests {
         assert!(validate_pg_ident("_private").is_ok());
         assert!(validate_pg_ident("Table123").is_ok());
         assert!(validate_pg_ident("a").is_ok());
+        assert!(validate_pg_ident("table-name").is_ok());
+        assert!(validate_pg_ident("table-with-dash").is_ok());
     }
 
     #[test]
@@ -72,7 +74,6 @@ mod tests {
         assert!(validate_pg_ident("").is_err());
         assert!(validate_pg_ident("123_table").is_err());
         assert!(validate_pg_ident("table; DROP").is_err());
-        assert!(validate_pg_ident("table-name").is_err());
         assert!(validate_pg_ident("table name").is_err());
         assert!(validate_pg_ident(
             "a_very_long_identifier_that_exceeds_sixty_three_characters_limit"

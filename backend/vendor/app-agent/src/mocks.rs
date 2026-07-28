@@ -128,32 +128,62 @@ impl MockLlmService {
 }
 
 /// 解析 system prompt 中的技能名与步骤 ID。
+///
+/// system 形如：
+/// ```text
+/// 你是 AppAgent 的技能执行引擎。...
+/// 技能：{name}
+/// {desc}
+/// 阶段：{track_name} / 步骤 {step_id}
+/// ```
 fn parse_skill_step(system: &str) -> Option<(String, String)> {
-    let name = system.find("技能：").and_then(|i| {
-        let rest = &system[i + "技能：".len()..];
-        rest.lines().next().map(|l| l.trim().to_string())
-    })?;
-    let step = system.find("步骤 ").and_then(|i| {
-        let rest = &system[i + "步骤 ".len()..];
-        let end = rest
-            .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-            .unwrap_or(rest.len());
-        let s = rest[..end].trim().to_string();
-        if s.is_empty() {
-            None
-        } else {
-            Some(s)
-        }
-    })?;
+    let name = system
+        .find("技能：")
+        .and_then(|i| {
+            let rest = &system[i + "技能：".len()..];
+            rest.lines().next().map(|l| l.trim().to_string())
+        })?;
+    let step = system
+        .find("步骤 ")
+        .and_then(|i| {
+            let rest = &system[i + "步骤 ".len()..];
+            // 取直到行尾的 [0-9.]+ 段
+            let end = rest
+                .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+                .unwrap_or(rest.len());
+            let s = rest[..end].trim().to_string();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })?;
     Some((name, step))
 }
 
 /// 确定性技能执行器：依据 (技能, 步骤) 返回需写出的产物 (模板路径, 内容)。
+///
+/// 路径含 `{ns}`/`{module}`/`{block}`/`{app}`/`{service}` 占位符，
+/// 由 ExecutingSkill handler 解析为真实路径。仅覆盖「Rust 侧未产出、需 LLM 写」的产物。
 fn skill_step_artifacts(skill: &str, step: &str) -> Vec<(String, String)> {
     match (skill, step) {
         ("alioth-module", "1.2") => vec![(
             "Pre-Proc/{ns}/Prototypes/Modules/{module}/capability-map.md".to_string(),
             "# Capability Map\n\n| Capability | Block | Description |\n|---|---|---|\n| list | main | 列表 |\n".to_string(),
+        )],
+        // 1.4「Block 并行分发」：LLM 产出 block.json（gate 用 Sources/Blocks/*/block.json 通配校验）
+        ("alioth-module", "1.4") => vec![(
+            "Pre-Proc/{ns}/Sources/Blocks/{module}/block.json".to_string(),
+            serde_json::json!({
+                "id": "{module}",
+                "namespace": "{ns}",
+                "block": "SCEN",
+                "name": "{module}",
+                "version": "0.1.0",
+                "prototypeVersion": "b-v1",
+                "factors": []
+            })
+            .to_string(),
         )],
         ("alioth-module", "1.5") => vec![
             (

@@ -76,6 +76,7 @@ pub struct AppLogicExtension {
     pub model_profiles: HashMap<String, AppModelConfig>,
 }
 
+
 fn default_version() -> String {
     "1.0.0".to_string()
 }

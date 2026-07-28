@@ -36,7 +36,29 @@ for crate in "${EXPECTED[@]}"; do
 done
 
 echo ""
-echo "=== Checking app-creator crate depends on vendored crates ==="
+echo "=== Checking MANIFEST lock file ==="
+MANIFEST_FILE="$ROOT/backend/vendor/MANIFEST"
+if [ -f "$MANIFEST_FILE" ]; then
+    read -r manifest_line < "$MANIFEST_FILE"
+    hash_val="${manifest_line#UPSTREAM_COMMIT=}"
+    if [ "${#hash_val}" -eq 40 ]; then
+        case "$hash_val" in
+            *[!0-9a-f]*)
+                echo "  [FAIL] MANIFEST: UPSTREAM_COMMIT contains non-hex characters"
+                errors=$((errors + 1))
+                ;;
+            *)
+                echo "  [OK] MANIFEST: UPSTREAM_COMMIT=$hash_val"
+                ;;
+        esac
+    else
+        echo "  [FAIL] MANIFEST: UPSTREAM_COMMIT length != 40 (got ${#hash_val})"
+        errors=$((errors + 1))
+    fi
+else
+    echo "  [FAIL] MANIFEST not found at $MANIFEST_FILE"
+    errors=$((errors + 1))
+fi
 BACKEND_CARGO="$ROOT/backend/Cargo.toml"
 for dep in app-agent common llm; do
   if grep -q "vendor/$dep" "$BACKEND_CARGO" 2>/dev/null; then
