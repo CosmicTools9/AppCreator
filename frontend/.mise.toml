@@ -10,5 +10,6 @@ preview = "bun run preview"
 [env]
 _.file = ".env.local"
 _.source = "../scripts/env/decrypt-env.sh"
-NODE_ENV = "development"
+# NODE_ENV 不于此处设置——mise 会将其注入所有 node 子进程，导致
+# `vite build` 恒为 dev-flavored（jsxDev=true；openspec add-alioth-feedback 实证）
 VITE_API_URL = "http://localhost:49495"
