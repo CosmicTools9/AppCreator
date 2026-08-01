@@ -260,7 +260,11 @@ pub async fn save_agent_context(
 ) -> Result<(), sqlx::Error> {
     let json = serde_json::to_value(ctx).unwrap_or_default();
     sqlx::query(
-        "UPDATE isahl_meta.meta_chat_sessions SET agent_state = $1, updated_at = NOW() WHERE id = $2",
+        // 原子 JSONB 顶层合并：与 Meta 侧 save_agent_context 同语义，保留另一侧新增顶层字段
+        // （如 state_events/effect_records），避免双写方互相抹掉与 TOCTOU 竞态
+        "UPDATE isahl_meta.meta_chat_sessions \
+         SET agent_state = COALESCE(agent_state, '{}'::jsonb) || $1::jsonb, updated_at = NOW() \
+         WHERE id = $2",
     )
     .bind(json)
     .bind(session_id)
