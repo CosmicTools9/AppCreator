@@ -1,0 +1,18 @@
+# AppCreator 开源仓库 .gitignore
+# 本文件随 git subtree split 进入 GitHub 开源仓库根目录，
+# 保证开源仓库同样忽略构建产物与密钥。
+
+# Rust
+**/target/
+
+# Node / 前端
+node_modules/
+**/dist/
+
+# 环境变量 / 密钥（保留 .example 模板）
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
